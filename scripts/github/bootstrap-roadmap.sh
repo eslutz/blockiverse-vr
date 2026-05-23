@@ -115,6 +115,13 @@ ensure_select_field() {
   local options="$2"
   local existing
   existing="$(gh project field-list "$project_number" --owner "$OWNER" --format json --jq ".fields[]? | select(.name == \"$field\") | .id" | head -n 1)"
+  if [ "$field" = "Status" ] && [ -n "$existing" ]; then
+    if ! gh project field-list "$project_number" --owner "$OWNER" --format json \
+      --jq ".fields[]? | select(.name == \"Status\") | .options[]?.name" | grep -qx "Backlog"; then
+      gh project field-delete --id "$existing" >/dev/null || true
+      existing=""
+    fi
+  fi
   if [ -z "$existing" ]; then
     gh project field-create "$project_number" \
       --owner "$OWNER" \
@@ -139,10 +146,22 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 map_file="$tmp_dir/issues.tsv"
 fields_file="$tmp_dir/project-fields.json"
+existing_issues_file="$tmp_dir/existing-issues.tsv"
+existing_items_file="$tmp_dir/existing-project-items.tsv"
 touch "$map_file"
 
 refresh_fields() {
   gh project field-list "$project_number" --owner "$OWNER" --format json > "$fields_file"
+}
+
+refresh_existing_issues() {
+  gh issue list -R "$REPO" --state all --limit 300 --json number,title,url \
+    --jq '.[] | [.title, .number, .url] | @tsv' > "$existing_issues_file"
+}
+
+refresh_existing_project_items() {
+  gh project item-list "$project_number" --owner "$OWNER" --limit 300 --format json \
+    --jq '.items[]? | select(.content.url != null) | [.content.url, .id] | @tsv' > "$existing_items_file"
 }
 
 field_id() {
@@ -156,21 +175,53 @@ option_id() {
   jq -r --arg field "$field" --arg value "$value" '.fields[] | select(.name == $field) | .options[]? | select(.name == $value) | .id' "$fields_file" | head -n 1
 }
 
-set_select_value() {
-  local item_id="$1"
-  local field="$2"
-  local value="$3"
+add_project_field_mutation() {
+  local mutation_file="$1"
+  local alias="$2"
+  local item_id="$3"
+  local field="$4"
+  local value="$5"
   [ -z "$value" ] && return 0
 
   local fid oid
   fid="$(field_id "$field")"
   oid="$(option_id "$field" "$value")"
   if [ -n "$fid" ] && [ -n "$oid" ]; then
-    gh project item-edit \
-      --id "$item_id" \
-      --project-id "$project_id" \
-      --field-id "$fid" \
-      --single-select-option-id "$oid" >/dev/null || true
+    printf '%s:updateProjectV2ItemFieldValue(input:{projectId:"%s",itemId:"%s",fieldId:"%s",value:{singleSelectOptionId:"%s"}}){projectV2Item{id}}\n' \
+      "$alias" "$project_id" "$item_id" "$fid" "$oid" >> "$mutation_file"
+  fi
+}
+
+set_project_values() {
+  local item_id="$1"
+  local type="$2"
+  local phase="$3"
+  local priority="$4"
+  local area="$5"
+  local milestone="$6"
+  local risk="$7"
+  local target="$8"
+  local effort="$9"
+
+  local mutation_file="$tmp_dir/project-values-$item_id.graphql"
+  {
+    echo "mutation {"
+  } > "$mutation_file"
+
+  add_project_field_mutation "$mutation_file" "status" "$item_id" "Status" "Backlog"
+  add_project_field_mutation "$mutation_file" "type" "$item_id" "Type" "$type"
+  add_project_field_mutation "$mutation_file" "phase" "$item_id" "Phase" "$phase"
+  add_project_field_mutation "$mutation_file" "priority" "$item_id" "Priority" "$priority"
+  add_project_field_mutation "$mutation_file" "area" "$item_id" "Area" "$area"
+  add_project_field_mutation "$mutation_file" "milestone" "$item_id" "Milestone" "$milestone"
+  add_project_field_mutation "$mutation_file" "risk" "$item_id" "Risk" "$risk"
+  add_project_field_mutation "$mutation_file" "target" "$item_id" "Target Release" "$target"
+  add_project_field_mutation "$mutation_file" "effort" "$item_id" "Effort" "$effort"
+
+  echo "}" >> "$mutation_file"
+
+  if [ "$(wc -l < "$mutation_file")" -gt 2 ]; then
+    gh api graphql -f "query=$(cat "$mutation_file")" >/dev/null || true
   fi
 }
 
@@ -186,8 +237,7 @@ lookup_issue_url() {
 
 find_issue_by_title() {
   local title="$1"
-  gh issue list -R "$REPO" --state all --limit 200 --search "$title in:title" --json number,title \
-    --jq ".[] | select(.title == \"$title\") | .number" | head -n 1
+  awk -F '\t' -v title="$title" '$1 == title { print $2 "\t" $3; exit }' "$existing_issues_file"
 }
 
 write_issue_body() {
@@ -259,9 +309,14 @@ write_issue_body() {
 add_issue_to_project() {
   local url="$1"
   local item_id
-  if ! item_id="$(gh project item-add "$project_number" --owner "$OWNER" --url "$url" --format json --jq '.id' 2>/dev/null)"; then
-    item_id="$(gh project item-list "$project_number" --owner "$OWNER" --limit 300 --format json \
-      --jq ".items[]? | select(.content.url == \"$url\") | .id" | head -n 1)"
+  item_id="$(awk -F '\t' -v url="$url" '$1 == url { print $2; exit }' "$existing_items_file")"
+  if [ -z "$item_id" ]; then
+    if item_id="$(gh project item-add "$project_number" --owner "$OWNER" --url "$url" --format json --jq '.id' 2>/dev/null)"; then
+      printf '%s\t%s\n' "$url" "$item_id" >> "$existing_items_file"
+    else
+      refresh_existing_project_items
+      item_id="$(awk -F '\t' -v url="$url" '$1 == url { print $2; exit }' "$existing_items_file")"
+    fi
   fi
   echo "$item_id"
 }
@@ -299,21 +354,19 @@ create_or_update_issue() {
     "target: $target"
   )
 
+  local labels_csv
+  labels_csv="$(IFS=,; echo "${labels[*]}")"
+
   local number url existing
   existing="$(find_issue_by_title "$title")"
   if [ -n "$existing" ]; then
-    number="$existing"
-    gh issue edit "$number" -R "$REPO" --body-file "$body_file" --milestone "$milestone" >/dev/null
-    for label in "${labels[@]}"; do
-      gh issue edit "$number" -R "$REPO" --add-label "$label" >/dev/null || true
-    done
-    url="$(gh issue view "$number" -R "$REPO" --json url --jq '.url')"
+    number="$(printf '%s' "$existing" | cut -f1)"
+    url="$(printf '%s' "$existing" | cut -f2)"
+    gh issue edit "$number" -R "$REPO" --body-file "$body_file" --milestone "$milestone" --add-label "$labels_csv" >/dev/null
   else
-    url="$(gh issue create -R "$REPO" --title "$title" --body-file "$body_file" --milestone "$milestone")"
+    url="$(gh issue create -R "$REPO" --title "$title" --body-file "$body_file" --milestone "$milestone" --label "$labels_csv")"
     number="${url##*/}"
-    for label in "${labels[@]}"; do
-      gh issue edit "$number" -R "$REPO" --add-label "$label" >/dev/null || true
-    done
+    printf '%s\t%s\t%s\n' "$title" "$number" "$url" >> "$existing_issues_file"
   fi
 
   printf '%s\t%s\t%s\t%s\n' "$key" "$number" "$url" "$title" >> "$map_file"
@@ -325,19 +378,13 @@ create_or_update_issue() {
   local item_id
   item_id="$(add_issue_to_project "$url")"
   if [ -n "$item_id" ]; then
-    set_select_value "$item_id" "Status" "Backlog"
-    set_select_value "$item_id" "Type" "$type"
-    set_select_value "$item_id" "Phase" "$phase"
-    set_select_value "$item_id" "Priority" "$priority"
-    set_select_value "$item_id" "Area" "$area"
-    set_select_value "$item_id" "Milestone" "$milestone"
-    set_select_value "$item_id" "Risk" "$risk"
-    set_select_value "$item_id" "Target Release" "$target"
-    set_select_value "$item_id" "Effort" "$effort"
+    set_project_values "$item_id" "$type" "$phase" "$priority" "$area" "$milestone" "$risk" "$target" "$effort"
   fi
 }
 
 refresh_fields
+refresh_existing_issues
+refresh_existing_project_items
 
 echo "Creating roadmap issues"
 tail -n +2 "$ROADMAP_FILE" | while IFS='|' read -r key type title parent phase milestone area priority risk target effort; do
