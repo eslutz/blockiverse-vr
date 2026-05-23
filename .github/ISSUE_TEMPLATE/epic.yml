@@ -1,0 +1,45 @@
+name: Epic
+description: Track a major roadmap phase or cross-cutting effort.
+title: "EPIC-XX "
+labels: ["type: epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: player_outcome
+    attributes:
+      label: Player-facing outcome
+    validations:
+      required: true
+  - type: textarea
+    id: technical_scope
+    attributes:
+      label: Technical scope
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+  - type: textarea
+    id: manual_validation
+    attributes:
+      label: Manual validation steps
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies

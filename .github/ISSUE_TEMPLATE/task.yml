@@ -1,0 +1,31 @@
+name: Task
+description: Track a concrete implementation or project task.
+title: "TASK: "
+labels: ["type: task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Technical scope
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies

@@ -1,0 +1,43 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-apk:
+    name: Signed release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify tag commit is on main
+        run: |
+          git fetch origin main --depth=1
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Check forbidden files
+        run: scripts/ci/forbidden-files.sh
+      - name: Detect Unity project
+        id: unity
+        run: |
+          if [ -f ProjectSettings/ProjectVersion.txt ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Placeholder until Unity bootstrap
+        if: steps.unity.outputs.exists == 'false'
+        run: echo "Unity project not bootstrapped yet; no release APK generated."
+      - name: Build signed APK
+        if: steps.unity.outputs.exists == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "Build signed release APK and generate symbols/checksums here."

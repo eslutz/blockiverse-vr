@@ -1,0 +1,43 @@
+name: Story
+description: Track an implementation story under a feature.
+title: "STORY: "
+labels: ["type: story"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: player_outcome
+    attributes:
+      label: Player-facing outcome
+  - type: textarea
+    id: technical_scope
+    attributes:
+      label: Technical scope
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+  - type: textarea
+    id: manual_validation
+    attributes:
+      label: Manual validation steps
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies

@@ -1,0 +1,27 @@
+name: Spike
+description: Track bounded research or feasibility work.
+title: "SPIKE: "
+labels: ["type: spike"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Technical scope
+    validations:
+      required: true
+  - type: textarea
+    id: timebox
+    attributes:
+      label: Timebox
+  - type: textarea
+    id: output
+    attributes:
+      label: Expected output
+    validations:
+      required: true
