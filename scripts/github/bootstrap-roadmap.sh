@@ -137,16 +137,17 @@ update_select_field_options() {
 ensure_select_field() {
   local field="$1"
   local options="$2"
-  local existing
+  local existing existing_type
   existing="$(gh project field-list "$project_number" --owner "$OWNER" --format json --jq ".fields[]? | select(.name == \"$field\") | .id" | head -n 1)"
+  existing_type="$(gh project field-list "$project_number" --owner "$OWNER" --format json --jq ".fields[]? | select(.name == \"$field\") | .type" | head -n 1)"
   if [ -z "$existing" ]; then
     gh project field-create "$project_number" \
       --owner "$OWNER" \
       --name "$field" \
       --data-type SINGLE_SELECT \
       --single-select-options "$options" >/dev/null
-  elif [ "$field" = "Status" ]; then
-    echo "Using GitHub's built-in Status field; requested workflow states are stored in Roadmap Status."
+  elif [ "$existing_type" != "ProjectV2SingleSelectField" ]; then
+    echo "Using GitHub's issue-derived $field field; requested single-select values are stored in Roadmap $field."
   elif ! gh project field-list "$project_number" --owner "$OWNER" --format json \
     --jq ".fields[]? | select(.name == \"$field\") | .options[]?.name" | grep -qx "$(printf '%s' "$options" | cut -d, -f1)"; then
     update_select_field_options "$existing" "$options"
@@ -161,6 +162,7 @@ ensure_select_field "Phase" "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,2
 ensure_select_field "Priority" "P0,P1,P2,P3"
 ensure_select_field "Area" "Repo,Engine,VR,Voxel,Terrain,Creative,Survival,Multiplayer,Art,Audio,UI,CI/CD,Store,QA"
 ensure_select_field "Milestone" "M0 Bootstrap,M1 VR Slice,M2 Creative,M3 Survival-Lite,M4 Multiplayer,M5 Store Candidate,M6 Full Survival"
+ensure_select_field "Roadmap Milestone" "M0 Bootstrap,M1 VR Slice,M2 Creative,M3 Survival-Lite,M4 Multiplayer,M5 Store Candidate,M6 Full Survival"
 ensure_select_field "Risk" "Low,Medium,High"
 ensure_select_field "Target Release" "Prototype,Alpha,Beta,RC,Store"
 ensure_select_field "Effort" "XS,S,M,L,XL"
@@ -231,13 +233,13 @@ set_project_values() {
     echo "mutation {"
   } > "$mutation_file"
 
-  add_project_field_mutation "$mutation_file" "status" "$item_id" "Status" "Todo"
+  add_project_field_mutation "$mutation_file" "status" "$item_id" "Status" "Backlog"
   add_project_field_mutation "$mutation_file" "roadmapStatus" "$item_id" "Roadmap Status" "Backlog"
   add_project_field_mutation "$mutation_file" "type" "$item_id" "Type" "$type"
   add_project_field_mutation "$mutation_file" "phase" "$item_id" "Phase" "$phase"
   add_project_field_mutation "$mutation_file" "priority" "$item_id" "Priority" "$priority"
   add_project_field_mutation "$mutation_file" "area" "$item_id" "Area" "$area"
-  add_project_field_mutation "$mutation_file" "milestone" "$item_id" "Milestone" "$milestone"
+  add_project_field_mutation "$mutation_file" "roadmapMilestone" "$item_id" "Roadmap Milestone" "$milestone"
   add_project_field_mutation "$mutation_file" "risk" "$item_id" "Risk" "$risk"
   add_project_field_mutation "$mutation_file" "target" "$item_id" "Target Release" "$target"
   add_project_field_mutation "$mutation_file" "effort" "$item_id" "Effort" "$effort"
