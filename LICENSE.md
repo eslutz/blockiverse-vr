@@ -1,6 +1,6 @@
 # License
 
-Copyright (c) 2026 Eric Lutz.
+Copyright (c) 2026 Eric Slutz.
 
 All rights reserved.
 
