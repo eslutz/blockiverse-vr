@@ -30,6 +30,7 @@ The script creates or configures:
 - GitHub Project fields
 - Epic, feature, and story issues from `roadmap.tsv`
 - Issue parent/child references
+- Native GitHub sub-issue links, so features are children of epics and stories are children of features
 - Best-effort `main` branch protection
 
 By default, the script adds issues to the Project but skips per-item custom field updates to avoid exhausting GitHub's GraphQL quota. Set `SET_PROJECT_FIELDS=1` to populate every custom Project field when sufficient quota is available.

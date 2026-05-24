@@ -8,6 +8,7 @@ SKIP_PROJECT_FIELD_SETUP="${SKIP_PROJECT_FIELD_SETUP:-0}"
 ENSURE_PROJECT_LINK="${ENSURE_PROJECT_LINK:-1}"
 SET_PROJECT_FIELDS="${SET_PROJECT_FIELDS:-0}"
 DIRECT_PROJECT_ADD="${DIRECT_PROJECT_ADD:-1}"
+SKIP_SUBISSUE_LINKS="${SKIP_SUBISSUE_LINKS:-0}"
 REPO_DESCRIPTION="VR voxel sandbox prototype for Meta Quest 3/3S built with Unity and C#."
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ROADMAP_FILE="$ROOT_DIR/scripts/github/roadmap.tsv"
@@ -546,6 +547,10 @@ while IFS=$'\t' read -r key number url node_id title; do
   jq -n --rawfile body "$updated_body" '{body: $body}' > "$tmp_dir/parent-link-$key.json"
   gh api "repos/$REPO/issues/$number" -X PATCH --input "$tmp_dir/parent-link-$key.json" >/dev/null
 done < "$map_file"
+
+if [ "$SKIP_SUBISSUE_LINKS" != "1" ]; then
+  scripts/github/link-subissues.sh
+fi
 
 echo "Applying best-effort main branch protection"
 cat > "$tmp_dir/branch-protection.json" <<'JSON'
