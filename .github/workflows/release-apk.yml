@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Verify tag commit is on main
@@ -51,7 +51,7 @@ jobs:
             echo "Expected output path: .ci-artifacts/release-apk/blockiverse-vr-release.apk"
           } > .ci-artifacts/release-apk/signed-release-apk-build-plan.txt
       - name: Upload signed release APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: signed-release-apk
           path: .ci-artifacts/release-apk/

@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and releases use tags cut from `main`.
 
 ## Unreleased
 
+- Updated GitHub Actions workflow pins to current stable major versions and documented dependency-currency guidance for agents.
 - Fixed the repository foundation check to query `origin` before asserting no remote `develop` branch exists.
 - Enabled repository auto-delete of head branches after pull requests merge.
 - Loosened agent issue-completion guidance so simple, objectively verified non-PR work can be moved to `Done` and closed with evidence.

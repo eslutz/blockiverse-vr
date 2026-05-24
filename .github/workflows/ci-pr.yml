@@ -10,7 +10,7 @@ jobs:
     name: Repository checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Check shell script syntax
         run: bash -n scripts/ci/*.sh scripts/github/*.sh
       - name: Test repository foundation checks
@@ -26,7 +26,7 @@ jobs:
     name: Unity tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Detect Unity project
         id: unity
         run: |

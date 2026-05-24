@@ -54,6 +54,15 @@ This file defines standing workflow instructions for AI agents and automation wo
 - Do not close an issue unless the acceptance criteria and relevant validation steps are satisfied.
 - Do not move an issue to `Done` until either Eric has approved the completed work or the work qualifies for autonomous closure under the rules below.
 
+## Dependency, Tool, And Workflow Currency
+
+- Before adding or changing GitHub Actions, packages, SDKs, CLIs, Unity packages, build images, or other third-party dependencies, verify the current stable version from official upstream sources such as release pages, package registries, vendor docs, or GitHub API output.
+- Prefer the latest stable major version unless the repository has a documented compatibility constraint, required runner/runtime version, licensing issue, or migration risk that justifies staying back.
+- Do not pin new work to stale major versions just because they appear in older examples, generated snippets, marketplace pages, or existing workflow files.
+- When updating GitHub Actions workflows, review every `uses:` reference in `.github/workflows/`, update related actions together when practical, and check release notes for major-version migration requirements such as Node.js or GitHub Actions runner minimums.
+- When a dependency cannot be safely updated to the latest stable major, document the reason in the issue or PR, keep the newest compatible version, and create a follow-up issue if the blocker should be removed later.
+- Include version-currency evidence in the validation notes for dependency or workflow changes: what was checked, what version was selected, and why it is compatible with this repo.
+
 ### Autonomous Issue Closure
 
 Agents may move issues to `Done` and close them without additional Eric approval only when the work is simple, low-risk, and objectively verifiable.
