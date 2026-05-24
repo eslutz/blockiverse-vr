@@ -14,7 +14,8 @@ This file defines standing workflow instructions for AI agents and automation wo
 - The project owner is Eric Slutz.
 - The GitHub username for assignment and review is `eslutz`.
 - When work begins on an issue, assign that issue to `eslutz` unless Eric explicitly says otherwise.
-- Eric must provide final approval for all work during the `In Review` phase.
+- Eric must provide final approval for complex, high-risk, product-facing, or pull-request-backed work during the `In Review` phase.
+- Simple administrative or repository-configuration issues may be validated, moved to `Done`, and closed by an agent without additional Eric approval when all acceptance criteria are objectively satisfied and evidence is posted to the issue before closing.
 - Eric is currently the only human on the project. Because automation-created pull requests are created under `eslutz`, GitHub branch protection must not require approving PR reviews or Code Owners review. Otherwise Eric cannot approve his own PR and the repository deadlocks.
 - Keep `main` protected with required status checks, linear history, conversation resolution, and force-push protection. Do not configure a required approving review count or required Code Owners review unless another human reviewer is added to the project.
 
@@ -38,19 +39,52 @@ This file defines standing workflow instructions for AI agents and automation wo
   - `In Progress` when active implementation begins.
   - `Blocked` when progress is waiting on an external dependency or decision.
   - `In Review` when a pull request is open or review is needed.
-  - `Done` only after implementation, validation, documentation, and Eric's approval are complete.
+  - `Done` after implementation, validation, documentation, and any required approval are complete.
 - Keep parent and child issue statuses coherent:
   - When a story starts, move that story and its active parent feature or epic to `In Progress`.
   - When completed work is ready for Eric review, move the completed story to `In Review`.
   - Move a parent feature to `In Review` when its relevant child stories are in `In Review` or `Done` and no child is still active.
   - Keep an epic `In Progress` while any of its features remain active or review is still pending.
-  - Move completed pre-existing cards to `In Review`, not `Done`, when Eric still needs to approve them.
+  - Move completed pre-existing cards to `In Review` when they need Eric review.
+  - Move completed pre-existing cards directly to `Done` when they are simple, objectively verifiable, do not require a PR, and closing evidence has been posted.
 - Leave a useful issue comment whenever status changes materially:
   - Start comment: branch name, implementation scope, linked parent or children, and expected validation.
   - Progress comment: decisions, blockers, or scope changes.
   - Review comment: PR link, validation commands, manual validation notes, and residual risk.
 - Do not close an issue unless the acceptance criteria and relevant validation steps are satisfied.
-- Do not move an issue to `Done` unless Eric has explicitly approved the completed work.
+- Do not move an issue to `Done` until either Eric has approved the completed work or the work qualifies for autonomous closure under the rules below.
+
+### Autonomous Issue Closure
+
+Agents may move issues to `Done` and close them without additional Eric approval only when the work is simple, low-risk, and objectively verifiable.
+
+Autonomous closure is appropriate for tasks such as:
+
+- Creating or verifying repository files, labels, milestones, issue templates, project fields, or folders.
+- Updating repository settings or branch protection when Eric has directly requested the setting change.
+- Documentation-only policy changes that Eric explicitly requested and that do not change product behavior.
+- Scripted roadmap/bootstrap bookkeeping where command output proves the requested state.
+
+Autonomous closure is not appropriate when the issue:
+
+- Is implemented by an open pull request that has not been merged.
+- Changes gameplay, VR behavior, networking, persistence, save/load, signing, release, store submission, privacy, licensing, security posture, or user-visible behavior.
+- Has ambiguous acceptance criteria or requires product/design judgment.
+- Has failing, missing, or incomplete validation.
+- Has unresolved blockers, follow-up tasks that are part of the acceptance criteria, or known risk needing Eric's decision.
+
+Before autonomously closing any issue, an agent must:
+
+- Re-read the issue body and linked parent or child issues.
+- Verify the completed state with direct evidence from local files, GitHub API output, workflow results, or command output.
+- Add an issue comment that includes:
+  - What was verified.
+  - The exact evidence or validation commands.
+  - Any relevant links to files, settings, project items, or PRs.
+  - A statement that the issue is being closed under the autonomous closure rule.
+- Move the Project item to `Done`.
+- Close the issue with state reason `completed`.
+- Verify both the GitHub issue state and the Project lane after closing.
 
 ### GitHub Project Update Procedure
 
@@ -86,6 +120,7 @@ gh project item-list <PROJECT_NUMBER> --owner eslutz --limit 200 --format json
 - Link pull requests to issues in the PR body.
 - Use non-closing references such as `Related to #20` unless Eric has explicitly asked for merge to close the issue.
 - Use closing keywords such as `Closes #20` only when all acceptance criteria are complete and Eric has approved closing on merge.
+- For autonomously closeable issues, close the issue directly after posting evidence instead of relying on PR closing keywords.
 - Add reciprocal issue comments with the PR link for every linked issue and important parent issue.
 - When a PR covers multiple issues, list all of them in the PR body and move each review-ready issue to `In Review`.
 - Keep PR descriptions useful enough for a human to resume work: include scope, linked issues, validation commands, manual validation, risk notes, and known follow-ups.
@@ -111,7 +146,7 @@ gh project item-list <PROJECT_NUMBER> --owner eslutz --limit 200 --format json
   - Move linked issues to `In Review`.
   - Request Eric's final approval in the PR or linked issue comments.
   - Do not require GitHub approving reviews while Eric is the sole human maintainer.
-- Do not merge a pull request, close the linked issue, or move the linked issue to `Done` until Eric has approved the work.
+- Do not merge a pull request, close the linked issue, or move the linked issue to `Done` until Eric has approved the work or explicitly asked the agent to merge/complete it.
 - PRs must include:
   - Linked issue, when one exists.
   - Summary of player-facing and technical changes.
