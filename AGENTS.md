@@ -81,6 +81,8 @@ This file defines standing workflow instructions for AI agents and automation wo
 ## Documentation Discipline
 
 - Update documentation when behavior, workflow, architecture, or project policy changes.
+- Keep [CHANGELOG.md](CHANGELOG.md) up-to-date with completed work that changes project behavior, workflow, documentation, release process, or user-visible scope.
+- Add completed work to the `Unreleased` section unless the change is being documented directly under a release version.
 - Keep issue bodies and PR descriptions useful enough for a human developer to resume the work.
 - Record important technical decisions under `docs/adr/`.
 - Keep the execution plan and roadmap scripts aligned when roadmap structure changes.
