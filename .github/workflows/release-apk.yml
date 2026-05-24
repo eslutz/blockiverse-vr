@@ -29,9 +29,15 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Prepare artifact directory
+        run: mkdir -p .ci-artifacts/release-apk
       - name: Placeholder until Unity bootstrap
         if: steps.unity.outputs.exists == 'false'
-        run: echo "Unity project not bootstrapped yet; no release APK generated."
+        run: |
+          {
+            echo "Unity project not bootstrapped yet."
+            echo "Signed release APK build will be enabled after EPIC-01 creates ProjectSettings/ProjectVersion.txt."
+          } > .ci-artifacts/release-apk/unity-not-bootstrapped.txt
       - name: Build signed APK
         if: steps.unity.outputs.exists == 'true'
         env:
@@ -40,4 +46,13 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          echo "Build signed release APK and generate symbols/checksums here."
+          {
+            echo "Build signed release APK and generate symbols/checksums here."
+            echo "Expected output path: .ci-artifacts/release-apk/blockiverse-vr-release.apk"
+          } > .ci-artifacts/release-apk/signed-release-apk-build-plan.txt
+      - name: Upload signed release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-release-apk
+          path: .ci-artifacts/release-apk/
+          if-no-files-found: error

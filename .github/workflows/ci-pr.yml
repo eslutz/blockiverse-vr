@@ -11,6 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Check shell script syntax
+        run: bash -n scripts/ci/*.sh scripts/github/*.sh
+      - name: Test repository foundation checks
+        run: scripts/ci/test-repository-foundation.sh
+      - name: Check repository foundation
+        run: scripts/ci/repository-foundation.sh
       - name: Check forbidden files
         run: scripts/ci/forbidden-files.sh
       - name: Check release policy docs
