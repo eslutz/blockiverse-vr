@@ -3,6 +3,8 @@
   "rootNamespace": "Blockiverse.Tests.PlayMode",
   "references": [
     "Blockiverse.Core",
+    "Blockiverse.VR",
+    "Unity.InputSystem",
     "UnityEngine.TestRunner"
   ],
   "includePlatforms": [],
