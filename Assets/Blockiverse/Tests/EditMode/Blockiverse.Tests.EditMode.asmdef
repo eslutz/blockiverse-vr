@@ -3,6 +3,10 @@
   "rootNamespace": "Blockiverse.Tests.EditMode",
   "references": [
     "Blockiverse.Core",
+    "Blockiverse.Gameplay",
+    "Blockiverse.Persistence",
+    "Blockiverse.Voxel",
+    "Blockiverse.WorldGen",
     "Blockiverse.UI",
     "Blockiverse.VR",
     "Unity.InputSystem",
