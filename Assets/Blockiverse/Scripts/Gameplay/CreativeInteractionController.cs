@@ -13,6 +13,7 @@ namespace Blockiverse.Gameplay
         BlockRegistry registry;
         CreativeHotbar hotbar;
         PlacementPreview placementPreview;
+        VoxelWorldRenderer worldRenderer;
         Bounds? playerBounds;
 
         public void Configure(
@@ -20,13 +21,15 @@ namespace Blockiverse.Gameplay
             BlockRegistry blockRegistry,
             CreativeHotbar creativeHotbar,
             PlacementPreview preview,
-            Bounds? playerCollisionBounds)
+            Bounds? playerCollisionBounds,
+            VoxelWorldRenderer renderer = null)
         {
             world = voxelWorld ?? throw new ArgumentNullException(nameof(voxelWorld));
             registry = blockRegistry ?? throw new ArgumentNullException(nameof(blockRegistry));
             hotbar = creativeHotbar;
             placementPreview = preview;
             playerBounds = playerCollisionBounds;
+            worldRenderer = renderer;
         }
 
         public static BlockPosition ComputePlacementPosition(BlockPosition targetPosition, Vector3 faceNormal)
@@ -64,6 +67,7 @@ namespace Blockiverse.Gameplay
             var command = new SetBlockCommand(position, BlockRegistry.Air);
             command.Execute(world);
             undoStack.Push(command);
+            RebuildChangedChunks();
             return true;
         }
 
@@ -88,6 +92,7 @@ namespace Blockiverse.Gameplay
             var command = new SetBlockCommand(position, selectedBlock);
             command.Execute(world);
             undoStack.Push(command);
+            RebuildChangedChunks();
             return true;
         }
 
@@ -114,6 +119,7 @@ namespace Blockiverse.Gameplay
 
             SetBlockCommand command = undoStack.Pop();
             command.Undo(world);
+            RebuildChangedChunks();
             return true;
         }
 
@@ -135,6 +141,11 @@ namespace Blockiverse.Gameplay
         {
             if (world == null || registry == null)
                 throw new InvalidOperationException("Creative interaction controller has not been configured.");
+        }
+
+        void RebuildChangedChunks()
+        {
+            worldRenderer?.RebuildDirty();
         }
 
         static Bounds GetBlockBounds(BlockPosition position)

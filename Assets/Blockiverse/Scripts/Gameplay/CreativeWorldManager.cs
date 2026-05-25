@@ -59,7 +59,8 @@ namespace Blockiverse.Gameplay
                     Registry,
                     hotbar,
                     placementPreview,
-                    new Bounds(new Vector3(settings.SpawnPosition.X + 0.5f, settings.SpawnPosition.Y + 0.5f, settings.SpawnPosition.Z + 0.5f), Vector3.one));
+                    new Bounds(new Vector3(settings.SpawnPosition.X + 0.5f, settings.SpawnPosition.Y + 0.5f, settings.SpawnPosition.Z + 0.5f), Vector3.one),
+                    Renderer);
             }
         }
 

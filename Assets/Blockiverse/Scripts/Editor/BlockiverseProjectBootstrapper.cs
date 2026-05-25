@@ -622,7 +622,13 @@ namespace Blockiverse.Editor
             CreativeWorldManager manager = EnsureComponent<CreativeWorldManager>(worldObject);
             CreativeHotbar hotbar = FindBootSceneHotbar(scene);
             manager.Configure(worldMaterial, interactionLayer, controller, hotbar);
-            EnsureCreativeInputBridge(scene, worldObject, controller);
+
+            BlockiverseCreativeInputBridge staleWorldBridge = worldObject.GetComponent<BlockiverseCreativeInputBridge>();
+
+            if (staleWorldBridge != null)
+                UnityEngine.Object.DestroyImmediate(staleWorldBridge);
+
+            EnsureCreativeInputBridge(scene, controller);
 
             EditorUtility.SetDirty(worldObject);
             EditorUtility.SetDirty(renderer);
@@ -637,7 +643,7 @@ namespace Blockiverse.Editor
             return hotbarTransform != null ? hotbarTransform.GetComponent<CreativeHotbar>() : null;
         }
 
-        static void EnsureCreativeInputBridge(Scene scene, GameObject worldObject, CreativeInteractionController controller)
+        static void EnsureCreativeInputBridge(Scene scene, CreativeInteractionController controller)
         {
             GameObject rig = FindRootGameObject(scene, BlockiverseProject.XrRigRootName);
 
@@ -650,7 +656,7 @@ namespace Blockiverse.Editor
             if (inputRig == null || pointer == null)
                 return;
 
-            BlockiverseCreativeInputBridge bridge = EnsureComponent<BlockiverseCreativeInputBridge>(worldObject);
+            BlockiverseCreativeInputBridge bridge = EnsureComponent<BlockiverseCreativeInputBridge>(rig);
             bridge.Configure(inputRig, pointer, controller);
             EditorUtility.SetDirty(bridge);
         }

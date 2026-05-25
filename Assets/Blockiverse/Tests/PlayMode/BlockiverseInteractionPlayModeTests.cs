@@ -255,10 +255,20 @@ namespace Blockiverse.Tests.PlayMode
 
             CreativeWorldManager manager = worldObject.GetComponent<CreativeWorldManager>();
             VoxelWorldRenderer renderer = worldObject.GetComponent<VoxelWorldRenderer>();
+            BlockiverseCreativeInputBridge[] bridges = Object.FindObjectsByType<BlockiverseCreativeInputBridge>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             MeshFilter[] chunkFilters = worldObject.GetComponentsInChildren<MeshFilter>();
+            int activeSceneBridgeCount = 0;
+
+            foreach (BlockiverseCreativeInputBridge bridge in bridges)
+            {
+                if (bridge.gameObject.scene == SceneManager.GetActiveScene())
+                    activeSceneBridgeCount++;
+            }
 
             Assert.That(manager, Is.Not.Null);
             Assert.That(renderer, Is.Not.Null);
+            Assert.That(worldObject.GetComponent<BlockiverseCreativeInputBridge>(), Is.Null);
+            Assert.That(activeSceneBridgeCount, Is.EqualTo(1));
             Assert.That(manager.World, Is.Not.Null);
             Assert.That(manager.World.Bounds.Width, Is.GreaterThan(0));
             Assert.That(renderer.Stats.ChunkCount, Is.GreaterThan(0));

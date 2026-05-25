@@ -57,6 +57,43 @@ namespace Blockiverse.Tests.PlayMode
         }
 
         [Test]
+        public void BlockMutationsRebuildDirtyChunkMeshes()
+        {
+            var registry = BlockRegistry.CreateDefault();
+            var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 5);
+            BlockPosition editedPosition = new(1, 0, 1);
+            world.SetBlock(editedPosition, BlockRegistry.MeadowTurf, trackChange: false);
+
+            var worldObject = new GameObject("Creative World");
+            var hotbarObject = new GameObject("Hotbar");
+
+            try
+            {
+                VoxelWorldRenderer renderer = worldObject.AddComponent<VoxelWorldRenderer>();
+                renderer.Configure(world, registry, null, -1);
+
+                CreativeHotbar hotbar = hotbarObject.AddComponent<CreativeHotbar>();
+                hotbar.Configure(registry, new[] { BlockRegistry.Loam }, null);
+
+                CreativeInteractionController controller = worldObject.AddComponent<CreativeInteractionController>();
+                controller.Configure(world, registry, hotbar, null, null, renderer);
+
+                Assert.That(renderer.Stats.TriangleCount, Is.GreaterThan(0));
+
+                Assert.That(controller.TryBreakBlock(editedPosition), Is.True);
+                Assert.That(renderer.Stats.TriangleCount, Is.EqualTo(0));
+
+                Assert.That(controller.UndoLast(), Is.True);
+                Assert.That(renderer.Stats.TriangleCount, Is.GreaterThan(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(worldObject);
+                Object.DestroyImmediate(hotbarObject);
+            }
+        }
+
+        [Test]
         public void PlacementRejectsOutsideWorldBoundsAndPlayerCollision()
         {
             var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 5);
