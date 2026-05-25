@@ -25,10 +25,35 @@ namespace Blockiverse.VR
             if (inputRig == null || inputRig.InputActions == null)
                 return;
 
-            InputAction position = inputRig.FindAction(MapName, BlockiverseInputActionNames.Position);
-            InputAction rotation = inputRig.FindAction(MapName, BlockiverseInputActionNames.Rotation);
+            if (!TryFindAction(BlockiverseInputActionNames.IsTracked, out InputAction isTracked) ||
+                !isTracked.IsPressed())
+                return;
+
+            if (!TryFindAction(BlockiverseInputActionNames.Position, out InputAction position) ||
+                !TryFindAction(BlockiverseInputActionNames.Rotation, out InputAction rotation))
+                return;
+
+            Quaternion controllerRotation = rotation.ReadValue<Quaternion>();
+            if (IsZeroQuaternion(controllerRotation))
+                return;
+
             transform.localPosition = position.ReadValue<Vector3>();
-            transform.localRotation = rotation.ReadValue<Quaternion>();
+            transform.localRotation = controllerRotation;
+        }
+
+        bool TryFindAction(string actionName, out InputAction action)
+        {
+            InputActionMap map = inputRig.InputActions.FindActionMap(MapName, throwIfNotFound: false);
+            action = map?.FindAction(actionName, throwIfNotFound: false);
+            return action != null;
+        }
+
+        static bool IsZeroQuaternion(Quaternion rotation)
+        {
+            return rotation.x == 0.0f &&
+                rotation.y == 0.0f &&
+                rotation.z == 0.0f &&
+                rotation.w == 0.0f;
         }
     }
 }
