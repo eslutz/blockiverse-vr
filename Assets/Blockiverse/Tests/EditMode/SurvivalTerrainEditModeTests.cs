@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Blockiverse.Voxel;
 using Blockiverse.WorldGen;
@@ -46,6 +47,23 @@ namespace Blockiverse.Tests.EditMode
             }
 
             Assert.That(differentColumns, Is.GreaterThan(512));
+        }
+
+        [Test]
+        public void SurvivalLitePresetFailsFastWhenWorldHeightCannotFitTerrainBand()
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            var settings = new WorldGenerationSettings(
+                width: 32,
+                height: 16,
+                depth: 32,
+                chunkSize: 16,
+                seed: 24601,
+                groundHeight: 8);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => new SurvivalLiteWorldPreset(registry, settings).Generate());
+
+            Assert.That(exception.Message, Does.Contain("world height"));
         }
 
         [Test]

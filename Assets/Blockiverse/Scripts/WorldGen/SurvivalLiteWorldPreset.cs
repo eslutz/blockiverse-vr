@@ -20,6 +20,7 @@ namespace Blockiverse.WorldGen
 
         public VoxelWorld Generate()
         {
+            ValidateSettings();
             ValidateRegistry();
 
             var world = new VoxelWorld(settings.Bounds, settings.ChunkSize, settings.Seed);
@@ -31,6 +32,18 @@ namespace Blockiverse.WorldGen
             ApplySpawnSafety(world);
 
             return world;
+        }
+
+        void ValidateSettings()
+        {
+            if (settings.Bounds.Height < 32)
+                throw new InvalidOperationException("Survival Lite generation requires a world height of at least 32 blocks.");
+
+            if (!settings.Bounds.Contains(settings.SpawnPosition))
+                throw new InvalidOperationException("Survival Lite generation requires a spawn position inside the world bounds.");
+
+            if (settings.SpawnPosition.Y + SpawnHeadroom >= settings.Bounds.Height)
+                throw new InvalidOperationException("Survival Lite generation requires enough headroom above the spawn position.");
         }
 
         void ValidateRegistry()
