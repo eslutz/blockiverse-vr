@@ -401,6 +401,7 @@ namespace Blockiverse.Editor
             origin.CameraFloorOffsetObject = cameraOffset;
             origin.Camera = camera;
             origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
+            EnsureXrRigLocomotion(rig, inputRig, origin);
 
             CreateControllerAnchor(
                 "Left Controller",
@@ -436,6 +437,20 @@ namespace Blockiverse.Editor
                 cameraOffsetObject.transform.SetParent(rig.transform, false);
                 cameraOffset = cameraOffsetObject.transform;
             }
+
+            XROrigin origin = rig.GetComponent<XROrigin>();
+
+            if (origin == null)
+                origin = rig.AddComponent<XROrigin>();
+
+            if (origin.CameraFloorOffsetObject == null)
+                origin.CameraFloorOffsetObject = cameraOffset.gameObject;
+
+            if (origin.Camera == null)
+                origin.Camera = cameraOffset.GetComponentInChildren<Camera>(true);
+
+            origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
+            EnsureXrRigLocomotion(rig, inputRig, origin);
 
             EnsureControllerAnchor(
                 "Left Controller",
@@ -500,6 +515,36 @@ namespace Blockiverse.Editor
                 haptics = controller.AddComponent<BlockiverseControllerHaptics>();
 
             haptics.Configure(role);
+        }
+
+        static void EnsureXrRigLocomotion(GameObject rig, BlockiverseInputRig inputRig, XROrigin origin)
+        {
+            BlockiverseComfortSettings settings = rig.GetComponent<BlockiverseComfortSettings>();
+
+            if (settings == null)
+                settings = rig.AddComponent<BlockiverseComfortSettings>();
+
+            BlockiverseTeleportLocomotion teleport = rig.GetComponent<BlockiverseTeleportLocomotion>();
+
+            if (teleport == null)
+                teleport = rig.AddComponent<BlockiverseTeleportLocomotion>();
+
+            teleport.Configure(origin, settings);
+
+            BlockiverseSnapTurnLocomotion snapTurn = rig.GetComponent<BlockiverseSnapTurnLocomotion>();
+
+            if (snapTurn == null)
+                snapTurn = rig.AddComponent<BlockiverseSnapTurnLocomotion>();
+
+            snapTurn.Configure(origin, settings);
+
+            BlockiverseHeightReset heightReset = rig.GetComponent<BlockiverseHeightReset>();
+
+            if (heightReset == null)
+                heightReset = rig.AddComponent<BlockiverseHeightReset>();
+
+            heightReset.Configure(origin, settings);
+            inputRig.ConfigureLocomotion(teleport, snapTurn, heightReset);
         }
     }
 }

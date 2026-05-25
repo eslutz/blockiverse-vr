@@ -269,8 +269,8 @@ MonoBehaviour:
       m_Type: 0
       m_ExpectedControlType: Vector3
       m_Id: a732ab52-5b61-414a-adc2-999bafcc317c
-      m_Processors: 
-      m_Interactions: 
+      m_Processors:
+      m_Interactions:
       m_SingletonActionBindings: []
       m_Flags: 0
     m_Reference: {fileID: 0}
@@ -281,8 +281,8 @@ MonoBehaviour:
       m_Type: 0
       m_ExpectedControlType: Quaternion
       m_Id: 1aa87635-f3fb-4b12-8a0f-d3b9aad338d7
-      m_Processors: 
-      m_Interactions: 
+      m_Processors:
+      m_Interactions:
       m_SingletonActionBindings: []
       m_Flags: 0
     m_Reference: {fileID: 0}
@@ -293,27 +293,27 @@ MonoBehaviour:
       m_Type: 0
       m_ExpectedControlType: Integer
       m_Id: cf1b7ba5-141d-4592-8b47-88bbd1ac6962
-      m_Processors: 
-      m_Interactions: 
+      m_Processors:
+      m_Interactions:
       m_SingletonActionBindings: []
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_PositionAction:
-    m_Name: 
+    m_Name:
     m_Type: 0
-    m_ExpectedControlType: 
+    m_ExpectedControlType:
     m_Id: 844b7ea0-b07a-4ae5-a31a-3855c71af4de
-    m_Processors: 
-    m_Interactions: 
+    m_Processors:
+    m_Interactions:
     m_SingletonActionBindings: []
     m_Flags: 0
   m_RotationAction:
-    m_Name: 
+    m_Name:
     m_Type: 0
-    m_ExpectedControlType: 
+    m_ExpectedControlType:
     m_Id: c7c93f6f-8247-47c1-9618-1ed6ffc90ed7
-    m_Processors: 
-    m_Interactions: 
+    m_Processors:
+    m_Interactions:
     m_SingletonActionBindings: []
     m_Flags: 0
 --- !u!1 &6788423518949538828
@@ -328,6 +328,10 @@ GameObject:
   - component: {fileID: 1167955605853959161}
   - component: {fileID: 741549122611035828}
   - component: {fileID: 6464803785323197589}
+  - component: {fileID: 4477331920936702979}
+  - component: {fileID: 7170451440076403424}
+  - component: {fileID: 4545708939108340447}
+  - component: {fileID: 5789210142833391915}
   m_Layer: 0
   m_Name: BlockiverseXRRig
   m_TagString: Untagged
@@ -361,7 +365,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9d7a14e4c89f346cbb594fb02667cd30, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseXRRigMarker
 --- !u!114 &741549122611035828
 MonoBehaviour:
@@ -373,7 +377,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e0cb9aa70a22847b5925ee5f067c10a9, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.XR.CoreUtils::Unity.XR.CoreUtils.XROrigin
   m_Camera: {fileID: 2498534017811587301}
   m_OriginBaseGameObject: {fileID: 6788423518949538828}
@@ -393,3 +397,64 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseInputRig
   inputActions: {fileID: -944628639613478452, guid: 5ecabeba2918c4388af5318893da56b4, type: 3}
+  teleportLocomotion: {fileID: 7170451440076403424}
+  snapTurnLocomotion: {fileID: 4545708939108340447}
+  heightReset: {fileID: 5789210142833391915}
+--- !u!114 &4477331920936702979
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788423518949538828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4019bfa5bb677451d91420e764993f98, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseComfortSettings
+  teleportEnabled: 1
+  smoothTurnEnabled: 0
+  snapTurnDegrees: 45
+  standingEyeHeight: 1.6
+--- !u!114 &7170451440076403424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788423518949538828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee6e3aa44b7de4a4785dd81b6cc09476, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseTeleportLocomotion
+  origin: {fileID: 741549122611035828}
+  settings: {fileID: 4477331920936702979}
+--- !u!114 &4545708939108340447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788423518949538828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97e57b8908d984a60b147d61b9775b47, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseSnapTurnLocomotion
+  origin: {fileID: 741549122611035828}
+  settings: {fileID: 4477331920936702979}
+--- !u!114 &5789210142833391915
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788423518949538828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b548d7670cf04571aa014ec63c7ef16, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseHeightReset
+  origin: {fileID: 741549122611035828}
+  settings: {fileID: 4477331920936702979}

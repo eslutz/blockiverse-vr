@@ -5,6 +5,7 @@
     "Blockiverse.Core",
     "Blockiverse.VR",
     "Unity.InputSystem",
+    "Unity.XR.CoreUtils",
     "UnityEngine.TestRunner"
   ],
   "includePlatforms": [],

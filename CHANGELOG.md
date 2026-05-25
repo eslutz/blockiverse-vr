@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and releases use tags cut from `main`.
 
 ## Unreleased
 
+- Added VR locomotion behavior for teleport movement, snap turning, height reset, and the comfort settings foundation used by the XR rig.
 - Added the M1 VR controller input action map, Quest controller anchor bindings, haptics abstraction, and input smoke tests.
 - Updated GitHub Actions workflow pins to current stable major versions and documented dependency-currency guidance for agents.
 - Bootstrapped the Unity 6 Quest project with URP, OpenXR Meta Quest settings, a boot scene, an XR rig prefab, assembly boundaries, EditMode and PlayMode bootstrap tests, and a development APK smoke build.
