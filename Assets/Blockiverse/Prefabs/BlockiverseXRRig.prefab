@@ -9,6 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5696114766365827730}
+  - component: {fileID: 4566657090513091336}
+  - component: {fileID: 6780615004556655777}
   m_Layer: 0
   m_Name: Left Controller
   m_TagString: Untagged
@@ -31,6 +33,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 6200346131006441375}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4566657090513091336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8457423193004771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51c2a3f08db3a454ea09f8907aeca5b0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseControllerAnchor
+  inputRig: {fileID: 6464803785323197589}
+  role: 0
+--- !u!114 &6780615004556655777
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8457423193004771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea09178d23bf5469fb31d6db04b75d51, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseControllerHaptics
+  role: 0
 --- !u!1 &1235741772542937373
 GameObject:
   m_ObjectHideFlags: 0
@@ -40,6 +69,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6989568263850087154}
+  - component: {fileID: 6783649790512326716}
+  - component: {fileID: 2198766101843430427}
   m_Layer: 0
   m_Name: Right Controller
   m_TagString: Untagged
@@ -62,6 +93,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 6200346131006441375}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6783649790512326716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1235741772542937373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51c2a3f08db3a454ea09f8907aeca5b0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseControllerAnchor
+  inputRig: {fileID: 6464803785323197589}
+  role: 1
+--- !u!114 &2198766101843430427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1235741772542937373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea09178d23bf5469fb31d6db04b75d51, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseControllerHaptics
+  role: 1
 --- !u!1 &4575306878913821552
 GameObject:
   m_ObjectHideFlags: 0
@@ -199,7 +257,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.XR.TrackedPoseDriver
   m_TrackingType: 0
   m_UpdateType: 0
@@ -269,6 +327,7 @@ GameObject:
   - component: {fileID: 4474765016073847360}
   - component: {fileID: 1167955605853959161}
   - component: {fileID: 741549122611035828}
+  - component: {fileID: 6464803785323197589}
   m_Layer: 0
   m_Name: BlockiverseXRRig
   m_TagString: Untagged
@@ -321,3 +380,16 @@ MonoBehaviour:
   m_CameraFloorOffsetObject: {fileID: 4575306878913821552}
   m_RequestedTrackingOriginMode: 2
   m_CameraYOffset: 1.1176
+--- !u!114 &6464803785323197589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788423518949538828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9034aca74eb64603b54f1686dc71ba1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseInputRig
+  inputActions: {fileID: -944628639613478452, guid: 5ecabeba2918c4388af5318893da56b4, type: 3}

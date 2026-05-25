@@ -326,7 +326,21 @@ namespace Blockiverse.Editor
             var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BlockiverseProject.XrRigPrefabPath);
 
             if (existingPrefab != null)
-                return existingPrefab;
+            {
+                GameObject prefabContents = PrefabUtility.LoadPrefabContents(BlockiverseProject.XrRigPrefabPath);
+
+                try
+                {
+                    EnsureXrRigControllerBindings(prefabContents);
+                    PrefabUtility.SaveAsPrefabAsset(prefabContents, BlockiverseProject.XrRigPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabContents);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(BlockiverseProject.XrRigPrefabPath);
+            }
 
             GameObject rig = CreateXrRigInstance();
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(rig, BlockiverseProject.XrRigPrefabPath);
@@ -365,6 +379,9 @@ namespace Blockiverse.Editor
         {
             GameObject rig = new(BlockiverseProject.XrRigRootName);
             rig.AddComponent<BlockiverseXRRigMarker>();
+            InputActionAsset inputActions = EnsureInputActions();
+            BlockiverseInputRig inputRig = rig.AddComponent<BlockiverseInputRig>();
+            inputRig.Configure(inputActions);
 
             GameObject cameraOffset = new("Camera Offset");
             cameraOffset.transform.SetParent(rig.transform, false);
@@ -385,17 +402,104 @@ namespace Blockiverse.Editor
             origin.Camera = camera;
             origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
 
-            CreateControllerAnchor("Left Controller", cameraOffset.transform, new Vector3(-0.25f, 1.25f, 0.35f));
-            CreateControllerAnchor("Right Controller", cameraOffset.transform, new Vector3(0.25f, 1.25f, 0.35f));
+            CreateControllerAnchor(
+                "Left Controller",
+                cameraOffset.transform,
+                new Vector3(-0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Left);
+            CreateControllerAnchor(
+                "Right Controller",
+                cameraOffset.transform,
+                new Vector3(0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Right);
 
             return rig;
         }
 
-        static void CreateControllerAnchor(string name, Transform parent, Vector3 localPosition)
+        static void EnsureXrRigControllerBindings(GameObject rig)
+        {
+            InputActionAsset inputActions = EnsureInputActions();
+            BlockiverseInputRig inputRig = rig.GetComponent<BlockiverseInputRig>();
+
+            if (inputRig == null)
+                inputRig = rig.AddComponent<BlockiverseInputRig>();
+
+            inputRig.Configure(inputActions);
+
+            Transform cameraOffset = rig.transform.Find("Camera Offset");
+
+            if (cameraOffset == null)
+            {
+                GameObject cameraOffsetObject = new("Camera Offset");
+                cameraOffsetObject.transform.SetParent(rig.transform, false);
+                cameraOffset = cameraOffsetObject.transform;
+            }
+
+            EnsureControllerAnchor(
+                "Left Controller",
+                cameraOffset,
+                new Vector3(-0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Left);
+            EnsureControllerAnchor(
+                "Right Controller",
+                cameraOffset,
+                new Vector3(0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Right);
+        }
+
+        static void EnsureControllerAnchor(
+            string name,
+            Transform parent,
+            Vector3 localPosition,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
+        {
+            Transform existingController = parent.Find(name);
+
+            if (existingController == null)
+            {
+                CreateControllerAnchor(name, parent, localPosition, inputRig, role);
+                return;
+            }
+
+            ConfigureControllerAnchor(existingController.gameObject, inputRig, role);
+        }
+
+        static void CreateControllerAnchor(
+            string name,
+            Transform parent,
+            Vector3 localPosition,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
         {
             GameObject controller = new(name);
             controller.transform.SetParent(parent, false);
             controller.transform.localPosition = localPosition;
+            ConfigureControllerAnchor(controller, inputRig, role);
+        }
+
+        static void ConfigureControllerAnchor(
+            GameObject controller,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
+        {
+            BlockiverseControllerAnchor anchor = controller.GetComponent<BlockiverseControllerAnchor>();
+
+            if (anchor == null)
+                anchor = controller.AddComponent<BlockiverseControllerAnchor>();
+
+            anchor.Configure(inputRig, role);
+
+            BlockiverseControllerHaptics haptics = controller.GetComponent<BlockiverseControllerHaptics>();
+
+            if (haptics == null)
+                haptics = controller.AddComponent<BlockiverseControllerHaptics>();
+
+            haptics.Configure(role);
         }
     }
 }
