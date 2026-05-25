@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Blockiverse.Core;
@@ -10,6 +11,7 @@ using UnityEditor.XR.Management;
 using UnityEditor.XR.Management.Metadata;
 using UnityEditor.XR.OpenXR.Features;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -56,6 +58,7 @@ namespace Blockiverse.Editor
             ConfigureMetaRuntimeSettings();
             ConfigureUniversalRenderPipeline();
             ConfigureOpenXrForAndroid();
+            EnsureInputActions();
             EnsureXrRigPrefab();
             EnsureBootScene();
 
@@ -244,6 +247,60 @@ namespace Blockiverse.Editor
             EditorUtility.SetDirty(openXrSettings);
         }
 
+        static InputActionAsset EnsureInputActions()
+        {
+            var existingAsset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
+                BlockiverseProject.InputActionsAssetPath);
+
+            if (existingAsset != null)
+                return existingAsset;
+
+            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+            AddControllerMap(asset, BlockiverseInputActionNames.LeftHandMap, "<XRController>{LeftHand}");
+            AddControllerMap(asset, BlockiverseInputActionNames.RightHandMap, "<XRController>{RightHand}");
+            AddGameplayMap(asset);
+
+            File.WriteAllText(BlockiverseProject.InputActionsAssetPath, asset.ToJson());
+            UnityEngine.Object.DestroyImmediate(asset);
+
+            AssetDatabase.ImportAsset(
+                BlockiverseProject.InputActionsAssetPath,
+                ImportAssetOptions.ForceSynchronousImport);
+
+            var importedAsset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
+                BlockiverseProject.InputActionsAssetPath);
+
+            if (importedAsset == null)
+                throw new InvalidOperationException("Unable to create Blockiverse input actions asset.");
+
+            return importedAsset;
+        }
+
+        static void AddControllerMap(InputActionAsset asset, string mapName, string controllerPath)
+        {
+            InputActionMap map = asset.AddActionMap(mapName);
+            map.AddAction(BlockiverseInputActionNames.Position, InputActionType.PassThrough, $"{controllerPath}/devicePosition", expectedControlLayout: "Vector3");
+            map.AddAction(BlockiverseInputActionNames.Rotation, InputActionType.PassThrough, $"{controllerPath}/deviceRotation", expectedControlLayout: "Quaternion");
+            map.AddAction(BlockiverseInputActionNames.IsTracked, InputActionType.Button, $"{controllerPath}/isTracked");
+            map.AddAction(BlockiverseInputActionNames.TrackingState, InputActionType.PassThrough, $"{controllerPath}/trackingState", expectedControlLayout: "Integer");
+            map.AddAction(BlockiverseInputActionNames.Select, InputActionType.Button, $"{controllerPath}/triggerPressed");
+            map.AddAction(BlockiverseInputActionNames.Activate, InputActionType.Button, $"{controllerPath}/gripPressed");
+            map.AddAction(BlockiverseInputActionNames.UiPress, InputActionType.Button, $"{controllerPath}/triggerPressed");
+            map.AddAction(BlockiverseInputActionNames.UiScroll, InputActionType.PassThrough, $"{controllerPath}/thumbstick", expectedControlLayout: "Vector2");
+            map.AddAction(BlockiverseInputActionNames.HapticDevice, InputActionType.PassThrough, $"{controllerPath}/*");
+            map.AddAction(BlockiverseInputActionNames.Move, InputActionType.PassThrough, $"{controllerPath}/thumbstick", expectedControlLayout: "Vector2");
+            map.AddAction(BlockiverseInputActionNames.Turn, InputActionType.PassThrough, $"{controllerPath}/thumbstick", expectedControlLayout: "Vector2");
+            map.AddAction(BlockiverseInputActionNames.TeleportMode, InputActionType.Button, $"{controllerPath}/primaryButton");
+            map.AddAction(BlockiverseInputActionNames.TeleportSelect, InputActionType.Button, $"{controllerPath}/triggerPressed");
+        }
+
+        static void AddGameplayMap(InputActionAsset asset)
+        {
+            InputActionMap map = asset.AddActionMap(BlockiverseInputActionNames.GameplayMap);
+            map.AddAction(BlockiverseInputActionNames.Menu, InputActionType.Button, "<XRController>{LeftHand}/menuButton");
+            map.AddAction(BlockiverseInputActionNames.HeightReset, InputActionType.Button, "<XRController>{LeftHand}/primaryButton");
+        }
+
         static XRGeneralSettings EnsureXrGeneralSettings(BuildTargetGroup targetGroup)
         {
             Type settingsType = typeof(XRGeneralSettingsPerBuildTarget);
@@ -269,7 +326,21 @@ namespace Blockiverse.Editor
             var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BlockiverseProject.XrRigPrefabPath);
 
             if (existingPrefab != null)
-                return existingPrefab;
+            {
+                GameObject prefabContents = PrefabUtility.LoadPrefabContents(BlockiverseProject.XrRigPrefabPath);
+
+                try
+                {
+                    EnsureXrRigControllerBindings(prefabContents);
+                    PrefabUtility.SaveAsPrefabAsset(prefabContents, BlockiverseProject.XrRigPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabContents);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(BlockiverseProject.XrRigPrefabPath);
+            }
 
             GameObject rig = CreateXrRigInstance();
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(rig, BlockiverseProject.XrRigPrefabPath);
@@ -308,6 +379,9 @@ namespace Blockiverse.Editor
         {
             GameObject rig = new(BlockiverseProject.XrRigRootName);
             rig.AddComponent<BlockiverseXRRigMarker>();
+            InputActionAsset inputActions = EnsureInputActions();
+            BlockiverseInputRig inputRig = rig.AddComponent<BlockiverseInputRig>();
+            inputRig.Configure(inputActions);
 
             GameObject cameraOffset = new("Camera Offset");
             cameraOffset.transform.SetParent(rig.transform, false);
@@ -328,17 +402,104 @@ namespace Blockiverse.Editor
             origin.Camera = camera;
             origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
 
-            CreateControllerAnchor("Left Controller", cameraOffset.transform, new Vector3(-0.25f, 1.25f, 0.35f));
-            CreateControllerAnchor("Right Controller", cameraOffset.transform, new Vector3(0.25f, 1.25f, 0.35f));
+            CreateControllerAnchor(
+                "Left Controller",
+                cameraOffset.transform,
+                new Vector3(-0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Left);
+            CreateControllerAnchor(
+                "Right Controller",
+                cameraOffset.transform,
+                new Vector3(0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Right);
 
             return rig;
         }
 
-        static void CreateControllerAnchor(string name, Transform parent, Vector3 localPosition)
+        static void EnsureXrRigControllerBindings(GameObject rig)
+        {
+            InputActionAsset inputActions = EnsureInputActions();
+            BlockiverseInputRig inputRig = rig.GetComponent<BlockiverseInputRig>();
+
+            if (inputRig == null)
+                inputRig = rig.AddComponent<BlockiverseInputRig>();
+
+            inputRig.Configure(inputActions);
+
+            Transform cameraOffset = rig.transform.Find("Camera Offset");
+
+            if (cameraOffset == null)
+            {
+                GameObject cameraOffsetObject = new("Camera Offset");
+                cameraOffsetObject.transform.SetParent(rig.transform, false);
+                cameraOffset = cameraOffsetObject.transform;
+            }
+
+            EnsureControllerAnchor(
+                "Left Controller",
+                cameraOffset,
+                new Vector3(-0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Left);
+            EnsureControllerAnchor(
+                "Right Controller",
+                cameraOffset,
+                new Vector3(0.25f, 1.25f, 0.35f),
+                inputRig,
+                BlockiverseControllerRole.Right);
+        }
+
+        static void EnsureControllerAnchor(
+            string name,
+            Transform parent,
+            Vector3 localPosition,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
+        {
+            Transform existingController = parent.Find(name);
+
+            if (existingController == null)
+            {
+                CreateControllerAnchor(name, parent, localPosition, inputRig, role);
+                return;
+            }
+
+            ConfigureControllerAnchor(existingController.gameObject, inputRig, role);
+        }
+
+        static void CreateControllerAnchor(
+            string name,
+            Transform parent,
+            Vector3 localPosition,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
         {
             GameObject controller = new(name);
             controller.transform.SetParent(parent, false);
             controller.transform.localPosition = localPosition;
+            ConfigureControllerAnchor(controller, inputRig, role);
+        }
+
+        static void ConfigureControllerAnchor(
+            GameObject controller,
+            BlockiverseInputRig inputRig,
+            BlockiverseControllerRole role)
+        {
+            BlockiverseControllerAnchor anchor = controller.GetComponent<BlockiverseControllerAnchor>();
+
+            if (anchor == null)
+                anchor = controller.AddComponent<BlockiverseControllerAnchor>();
+
+            anchor.Configure(inputRig, role);
+
+            BlockiverseControllerHaptics haptics = controller.GetComponent<BlockiverseControllerHaptics>();
+
+            if (haptics == null)
+                haptics = controller.AddComponent<BlockiverseControllerHaptics>();
+
+            haptics.Configure(role);
         }
     }
 }
