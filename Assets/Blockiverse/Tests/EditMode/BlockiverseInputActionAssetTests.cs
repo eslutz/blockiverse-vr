@@ -26,14 +26,29 @@ namespace Blockiverse.Tests.EditMode
             InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
                 BlockiverseProject.InputActionsAssetPath);
 
-            AssertAction(asset, BlockiverseInputActionNames.LeftHandMap, BlockiverseInputActionNames.Position, "<XRController>{LeftHand}/devicePosition");
-            AssertAction(asset, BlockiverseInputActionNames.LeftHandMap, BlockiverseInputActionNames.Rotation, "<XRController>{LeftHand}/deviceRotation");
-            AssertAction(asset, BlockiverseInputActionNames.LeftHandMap, BlockiverseInputActionNames.Select, "<XRController>{LeftHand}/triggerPressed");
-            AssertAction(asset, BlockiverseInputActionNames.RightHandMap, BlockiverseInputActionNames.Position, "<XRController>{RightHand}/devicePosition");
-            AssertAction(asset, BlockiverseInputActionNames.RightHandMap, BlockiverseInputActionNames.Rotation, "<XRController>{RightHand}/deviceRotation");
-            AssertAction(asset, BlockiverseInputActionNames.RightHandMap, BlockiverseInputActionNames.Select, "<XRController>{RightHand}/triggerPressed");
+            AssertControllerActions(asset, BlockiverseInputActionNames.LeftHandMap, "LeftHand");
+            AssertControllerActions(asset, BlockiverseInputActionNames.RightHandMap, "RightHand");
             AssertAction(asset, BlockiverseInputActionNames.GameplayMap, BlockiverseInputActionNames.Menu, "<XRController>{LeftHand}/menuButton");
             AssertAction(asset, BlockiverseInputActionNames.GameplayMap, BlockiverseInputActionNames.HeightReset, "<XRController>{LeftHand}/primaryButton");
+        }
+
+        static void AssertControllerActions(InputActionAsset asset, string mapName, string handUsage)
+        {
+            string controllerPath = $"<XRController>{{{handUsage}}}";
+
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Position, $"{controllerPath}/devicePosition");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Rotation, $"{controllerPath}/deviceRotation");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.IsTracked, $"{controllerPath}/isTracked");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.TrackingState, $"{controllerPath}/trackingState");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Select, $"{controllerPath}/triggerPressed");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Activate, $"{controllerPath}/gripPressed");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.UiPress, $"{controllerPath}/triggerPressed");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.UiScroll, $"{controllerPath}/thumbstick");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.HapticDevice, $"{controllerPath}/*");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Move, $"{controllerPath}/thumbstick");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.Turn, $"{controllerPath}/thumbstick");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.TeleportMode, $"{controllerPath}/primaryButton");
+            AssertAction(asset, mapName, BlockiverseInputActionNames.TeleportSelect, $"{controllerPath}/triggerPressed");
         }
 
         static void AssertAction(InputActionAsset asset, string mapName, string actionName, string expectedPath)
