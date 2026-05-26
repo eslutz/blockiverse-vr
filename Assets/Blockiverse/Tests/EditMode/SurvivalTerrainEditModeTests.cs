@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Blockiverse.Gameplay;
 using Blockiverse.Voxel;
 using Blockiverse.WorldGen;
 using NUnit.Framework;
@@ -166,11 +168,48 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(resourceCounts[BlockRegistry.Copperstone], Is.GreaterThan(resourceCounts[BlockRegistry.Ironstone]));
         }
 
+        [Test]
+        public void CreativeValidationWorldUsesGeneratedSurvivalLiteTerrain()
+        {
+            GeneratedCreativeWorld generatedWorld = CreativeWorldManager.CreateDefaultGeneratedWorld(seed: 97531);
+            VoxelWorld world = generatedWorld.World;
+
+            Assert.That(generatedWorld.Settings.Bounds, Is.EqualTo(new WorldBounds(128, 64, 128)));
+            Assert.That(world.Bounds, Is.EqualTo(generatedWorld.Settings.Bounds));
+
+            int[] sampledSurfaceHeights = Enumerable.Range(0, world.Bounds.Width / 8)
+                .Select(index => FindSurfaceY(world, index * 8, index * 8))
+                .Distinct()
+                .ToArray();
+
+            Assert.That(sampledSurfaceHeights.Length, Is.GreaterThan(1), "Creative validation should no longer use the flat test preset.");
+            Assert.That(CountBlocks(world, BlockRegistry.Coalstone), Is.GreaterThan(0));
+            Assert.That(world.GetBlock(generatedWorld.Settings.SpawnPosition), Is.EqualTo(BlockRegistry.Air));
+        }
+
         static VoxelWorld GenerateSurvivalWorld(int seed)
         {
             BlockRegistry registry = BlockRegistry.CreateDefault();
             WorldGenerationSettings settings = WorldGenerationSettings.CreateDefaultSurvivalLite(seed);
             return new SurvivalLiteWorldPreset(registry, settings).Generate();
+        }
+
+        static int CountBlocks(VoxelWorld world, BlockId blockId)
+        {
+            int count = 0;
+            for (int y = 0; y < world.Bounds.Height; y++)
+            {
+                for (int x = 0; x < world.Bounds.Width; x++)
+                {
+                    for (int z = 0; z < world.Bounds.Depth; z++)
+                    {
+                        if (world.GetBlock(new BlockPosition(x, y, z)) == blockId)
+                            count++;
+                    }
+                }
+            }
+
+            return count;
         }
 
         static int FindSurfaceY(VoxelWorld world, int x, int z)

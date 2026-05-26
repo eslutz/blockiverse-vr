@@ -2,6 +2,7 @@ using System.Linq;
 using Blockiverse.Gameplay;
 using Blockiverse.Voxel;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Blockiverse.Tests.EditMode
 {
@@ -70,6 +71,48 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(stats.ChunkCount, Is.EqualTo(4));
             Assert.That(stats.TriangleCount, Is.EqualTo(120));
             Assert.That(stats.QueuedRebuildCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void VisualAtlasContainsDistinctTilesForEveryRenderableBlock()
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            BlockDefinition[] renderableBlocks = registry.All
+                .Where(block => block.IsRenderable)
+                .ToArray();
+
+            Rect[] tileRects = renderableBlocks
+                .Select(block => BlockVisualAtlas.GetTileRect(block.Id))
+                .ToArray();
+
+            Assert.That(tileRects, Has.Length.EqualTo(renderableBlocks.Length));
+            Assert.That(tileRects.Distinct().Count(), Is.EqualTo(renderableBlocks.Length));
+            Assert.That(tileRects.All(rect => rect.width > 0.0f && rect.height > 0.0f), Is.True);
+        }
+
+        [Test]
+        public void MeshBuilderUsesBlockSpecificAtlasUvs()
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            var world = new VoxelWorld(new WorldBounds(8, 8, 8), chunkSize: 16, seed: 1);
+            world.SetBlock(new BlockPosition(1, 1, 1), BlockRegistry.MeadowTurf, trackChange: false);
+            world.SetBlock(new BlockPosition(5, 1, 1), BlockRegistry.Slate, trackChange: false);
+
+            ChunkMeshData mesh = ChunkMeshBuilder.Build(world, registry, new ChunkCoordinate(0, 0, 0));
+
+            Rect meadowRect = BlockVisualAtlas.GetTileRect(BlockRegistry.MeadowTurf);
+            Rect slateRect = BlockVisualAtlas.GetTileRect(BlockRegistry.Slate);
+
+            Assert.That(mesh.Uvs.Any(uv => IsInside(uv, meadowRect)), Is.True);
+            Assert.That(mesh.Uvs.Any(uv => IsInside(uv, slateRect)), Is.True);
+        }
+
+        static bool IsInside(Vector2 uv, Rect rect)
+        {
+            return uv.x >= rect.xMin &&
+                   uv.x <= rect.xMax &&
+                   uv.y >= rect.yMin &&
+                   uv.y <= rect.yMax;
         }
     }
 }

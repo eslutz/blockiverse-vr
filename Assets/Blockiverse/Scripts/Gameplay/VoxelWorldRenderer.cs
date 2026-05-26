@@ -23,7 +23,7 @@ namespace Blockiverse.Gameplay
         {
             world = voxelWorld ?? throw new ArgumentNullException(nameof(voxelWorld));
             registry = blockRegistry ?? throw new ArgumentNullException(nameof(blockRegistry));
-            chunkMaterial = material;
+            chunkMaterial = BlockVisualAtlas.CreateMaterial(material);
             interactionLayer = layer;
             rebuildQueue = new ChunkRebuildQueue(world);
             RebuildAll();
