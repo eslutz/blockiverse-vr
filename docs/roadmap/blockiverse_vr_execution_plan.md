@@ -423,7 +423,7 @@ Dependencies
 | M1 VR Slice | Player can stand in VR, move, point, select, and interact | Quest 3/3S vertical slice |
 | M2 Creative | Bounded voxel world, break/place blocks, save/load | Playable creative prototype |
 | M3 Survival-Lite | Terrain, caves, resources, inventory, crafting, health | Solo survival-lite loop |
-| M4 Multiplayer | Two players can join, see each other's Meta Horizon avatars, and edit world | Father/daughter co-op |
+| M4 Multiplayer | Early readable block visuals, generated creative validation terrain, and two-player join/edit foundation | Father/daughter co-op on a visually distinguishable world |
 | M5 Store Candidate | Performance, privacy, signing, release channels, metadata | Meta submission candidate |
 | M6 Full Survival Later | Original voxel NPCs/mobs, day/night, hostile encounters, progression | Later expansion |
 
@@ -958,6 +958,45 @@ No full survival mobs or day/night are included yet.
 
 ---
 
+## Phase 10.5 — Early visual differentiation and generated creative terrain
+
+### Deliverable
+
+The current headset validation build renders generated terrain with distinct original block visuals before multiplayer work begins.
+
+### Scope
+
+This is a moved-up subset of EPIC-12 so in-headset validation is not blocked by flat terrain or indistinguishable placeholder blocks.
+
+```text
+Generated survival-lite terrain remains the default validation world.
+Creative editing still works against generated terrain.
+Renderable block types use distinct original visual treatments.
+The first block visual pass is documented in the art direction and provenance logs.
+The implementation must not use copied Minecraft textures, names, prompts, or references.
+Full item icons, UI panel art, audio, haptics, and final polish remain later EPIC-12 work.
+```
+
+### Tests
+
+```text
+EditMode: creative validation world uses survival-lite terrain settings.
+EditMode: renderable blocks have distinct atlas tiles.
+EditMode: chunk mesh UVs use block-specific atlas coordinates.
+PlayMode: Boot scene still loads with the XR rig and rendered world.
+```
+
+### Validation
+
+```text
+In headset, the player should not spawn onto a flat-only world.
+Terrain height variation should be visible around spawn.
+Meadow Turf, Loam, Slate, Timber, Leafmass, ores, Workbench, Storage Crate, and Torchbud should be easier to tell apart.
+Creative break/place validation still works on the generated world.
+```
+
+---
+
 ## Phase 11 — Multiplayer architecture foundation
 
 ### Deliverable
@@ -1098,11 +1137,13 @@ Crafting does not duplicate or lose items under normal latency.
 
 ---
 
-## Phase 14 — Art asset generation pipeline
+## Phase 14 — Full art asset generation pipeline
 
 ### Deliverable
 
-Original placeholder art becomes a coherent voxel art style.
+The moved-up block readability pass expands into a coherent voxel art, item, UI, audio, and haptics style.
+
+The first block visual pass now begins in Phase 10.5/M4 for validation readability. Phase 14 remains responsible for final production-ready art, item icons, UI panels, audio, haptics, store-facing polish, and any replacement of procedural validation textures with reviewed final assets.
 
 ### Art direction
 
@@ -1838,16 +1879,16 @@ FEATURE: Networked survival-lite
 
 ```text
 FEATURE: Art style guide
-  STORY: Define palette
-  STORY: Define block texture rules
+  STORY: Define palette (moved-up M4 subset)
+  STORY: Define block texture rules (moved-up M4 subset)
   STORY: Define naming rules
-  STORY: Add AI/procedural asset provenance log
+  STORY: Add AI/procedural asset provenance log (moved-up M4 subset)
 
 FEATURE: First art pass
-  STORY: Generate original block textures
+  STORY: Generate original block textures (moved-up M4 subset)
   STORY: Generate original item icons
   STORY: Generate UI panels
-  STORY: Add asset validation tests
+  STORY: Add asset validation tests (moved-up M4 subset for block visuals)
 
 FEATURE: Audio/haptics
   STORY: Add break/place sounds
@@ -1925,15 +1966,16 @@ Build in this order:
 8. Procedural bounded terrain
 9. Inventory/crafting/resources
 10. Survival-lite health loop
-11. Multiplayer host/client movement
-12. Multiplayer block synchronization
-13. Multiplayer inventory/crafting sync
-14. Art/audio/UI pass
-15. Quest performance hardening
-16. GitHub Release signed APK fallback from main tags
-17. Meta release channels
-18. Meta Store/Early Access submission
-19. Full survival expansion later
+11. Early block visual differentiation and generated creative validation terrain
+12. Multiplayer host/client movement
+13. Multiplayer block synchronization
+14. Multiplayer inventory/crafting sync
+15. Full art/audio/UI pass
+16. Quest performance hardening
+17. GitHub Release signed APK fallback from main tags
+18. Meta release channels
+19. Meta Store/Early Access submission
+20. Full survival expansion later
 ```
 
 The key architectural decision is to make block edits, inventory changes, crafting, and damage all flow through command objects early. That keeps single-player, multiplayer, save/load, undo, and tests aligned instead of requiring a networking rewrite later.
@@ -1987,6 +2029,8 @@ No mobs/day-night yet.
 ## M4 Multiplayer
 
 ```text
+Generated terrain is visible in the default validation world.
+Renderable blocks have distinct original visual treatments for headset validation.
 Two Quest devices can connect.
 Players can see each other's Meta Horizon avatars.
 Players can edit the same world.

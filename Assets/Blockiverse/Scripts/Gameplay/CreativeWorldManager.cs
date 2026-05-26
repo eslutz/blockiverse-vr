@@ -1,9 +1,24 @@
+using Blockiverse.Core;
 using Blockiverse.Voxel;
 using Blockiverse.WorldGen;
 using UnityEngine;
 
 namespace Blockiverse.Gameplay
 {
+    public readonly struct GeneratedCreativeWorld
+    {
+        public GeneratedCreativeWorld(BlockRegistry registry, WorldGenerationSettings settings, VoxelWorld world)
+        {
+            Registry = registry;
+            Settings = settings;
+            World = world;
+        }
+
+        public BlockRegistry Registry { get; }
+        public WorldGenerationSettings Settings { get; }
+        public VoxelWorld World { get; }
+    }
+
     public sealed class CreativeWorldManager : MonoBehaviour
     {
         [SerializeField] Material chunkMaterial;
@@ -32,9 +47,10 @@ namespace Blockiverse.Gameplay
 
         public void InitializeDefaultWorld()
         {
-            Registry = BlockRegistry.CreateDefault();
-            WorldGenerationSettings settings = WorldGenerationSettings.CreateDefaultCreative();
-            World = new FlatCreativeWorldPreset(Registry, settings).Generate();
+            GeneratedCreativeWorld generatedWorld = CreateDefaultGeneratedWorld();
+            Registry = generatedWorld.Registry;
+            WorldGenerationSettings settings = generatedWorld.Settings;
+            World = generatedWorld.World;
 
             Renderer = GetComponent<VoxelWorldRenderer>();
 
@@ -62,12 +78,31 @@ namespace Blockiverse.Gameplay
                     new Bounds(new Vector3(settings.SpawnPosition.X + 0.5f, settings.SpawnPosition.Y + 0.5f, settings.SpawnPosition.Z + 0.5f), Vector3.one),
                     Renderer);
             }
+
+            PositionRigAtSpawn(settings.SpawnPosition);
+        }
+
+        public static GeneratedCreativeWorld CreateDefaultGeneratedWorld(int seed = 6401)
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            WorldGenerationSettings settings = WorldGenerationSettings.CreateDefaultSurvivalLite(seed);
+            VoxelWorld world = new SurvivalLiteWorldPreset(registry, settings).Generate();
+            return new GeneratedCreativeWorld(registry, settings, world);
         }
 
         void Awake()
         {
             if (World == null)
                 InitializeDefaultWorld();
+        }
+
+        static void PositionRigAtSpawn(BlockPosition spawnPosition)
+        {
+            GameObject rigObject = GameObject.Find(BlockiverseProject.XrRigRootName);
+            if (rigObject == null)
+                return;
+
+            rigObject.transform.position = new Vector3(spawnPosition.X + 0.5f, spawnPosition.Y, spawnPosition.Z + 0.5f);
         }
 
         static Material CreateFallbackMaterial()

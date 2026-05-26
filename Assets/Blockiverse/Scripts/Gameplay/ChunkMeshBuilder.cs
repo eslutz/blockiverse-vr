@@ -45,14 +45,6 @@ namespace Blockiverse.Gameplay
             { new(0, 0, 0), new(0, 1, 0), new(1, 1, 0), new(1, 0, 0) }
         };
 
-        static readonly Vector2[] FaceUvs =
-        {
-            new(0, 0),
-            new(0, 1),
-            new(1, 1),
-            new(1, 0)
-        };
-
         public static ChunkMeshData Build(VoxelWorld world, BlockRegistry registry, ChunkCoordinate chunk)
         {
             if (world == null)
@@ -91,7 +83,7 @@ namespace Blockiverse.Gameplay
                             if (!ShouldRenderFace(world, registry, neighbor))
                                 continue;
 
-                            AddFace(vertices, triangles, uvs, position, face);
+                            AddFace(vertices, triangles, uvs, position, face, definition.Id);
                             faceCount++;
                         }
                     }
@@ -110,16 +102,22 @@ namespace Blockiverse.Gameplay
             return !neighborDefinition.IsRenderable || !neighborDefinition.IsSolid;
         }
 
-        static void AddFace(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, BlockPosition position, int faceIndex)
+        static void AddFace(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs, BlockPosition position, int faceIndex, BlockId blockId)
         {
             int vertexStart = vertices.Count;
+            Rect uvRect = BlockVisualAtlas.GetTileRect(blockId);
+            var origin = new Vector3(position.X, position.Y, position.Z);
 
             for (int i = 0; i < 4; i++)
             {
                 Vector3 corner = FaceVertices[faceIndex, i];
-                vertices.Add(new Vector3(position.X, position.Y, position.Z) + corner);
-                uvs.Add(FaceUvs[i]);
+                vertices.Add(origin + corner);
             }
+
+            uvs.Add(new Vector2(uvRect.xMin, uvRect.yMin));
+            uvs.Add(new Vector2(uvRect.xMin, uvRect.yMax));
+            uvs.Add(new Vector2(uvRect.xMax, uvRect.yMax));
+            uvs.Add(new Vector2(uvRect.xMax, uvRect.yMin));
 
             triangles.Add(vertexStart + 0);
             triangles.Add(vertexStart + 1);
