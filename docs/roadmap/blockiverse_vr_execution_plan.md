@@ -977,7 +977,8 @@ Committed authored texture assets become the default rendering source once creat
 The runtime-generated atlas remains only as a development/test fallback.
 The first block visual pass is documented in the art direction and provenance logs.
 The implementation must not use copied Minecraft textures, names, prompts, or references.
-Audio, haptics, store screenshots, and final store polish remain later EPIC-12/M5 work.
+Audio and haptics remain later EPIC-12 art/audio/UI polish work.
+Store screenshots and final store polish remain EPIC-14/M6 Store Candidate work.
 ```
 
 ### Tests
