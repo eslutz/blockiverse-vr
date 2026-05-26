@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Reflection;
 using Blockiverse.Gameplay;
 using Blockiverse.Voxel;
 using NUnit.Framework;
@@ -107,12 +109,48 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(mesh.Uvs.Any(uv => IsInside(uv, slateRect)), Is.True);
         }
 
+        [Test]
+        public void MeshBuilderDoesNotAllocateUvArraysPerFace()
+        {
+            MethodInfo addFace = typeof(ChunkMeshBuilder).GetMethod(
+                "AddFace",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(addFace, Is.Not.Null);
+            Assert.That(ContainsNewArrayInstructionFor(addFace, typeof(Vector2)), Is.False);
+        }
+
         static bool IsInside(Vector2 uv, Rect rect)
         {
             return uv.x >= rect.xMin &&
                    uv.x <= rect.xMax &&
                    uv.y >= rect.yMin &&
                    uv.y <= rect.yMax;
+        }
+
+        static bool ContainsNewArrayInstructionFor(MethodInfo method, Type elementType)
+        {
+            byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? Array.Empty<byte>();
+
+            for (int i = 0; i <= il.Length - 5; i++)
+            {
+                if (il[i] != 0x8D)
+                    continue;
+
+                int metadataToken = BitConverter.ToInt32(il, i + 1);
+
+                try
+                {
+                    if (method.Module.ResolveType(metadataToken) == elementType)
+                        return true;
+                }
+                catch (ArgumentException)
+                {
+                    // Operand bytes can look like opcodes when scanning raw IL.
+                }
+            }
+
+            return false;
         }
     }
 }

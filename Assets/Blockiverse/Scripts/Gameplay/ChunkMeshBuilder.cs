@@ -106,20 +106,18 @@ namespace Blockiverse.Gameplay
         {
             int vertexStart = vertices.Count;
             Rect uvRect = BlockVisualAtlas.GetTileRect(blockId);
-            Vector2[] faceUvs =
-            {
-                new(uvRect.xMin, uvRect.yMin),
-                new(uvRect.xMin, uvRect.yMax),
-                new(uvRect.xMax, uvRect.yMax),
-                new(uvRect.xMax, uvRect.yMin)
-            };
+            var origin = new Vector3(position.X, position.Y, position.Z);
 
             for (int i = 0; i < 4; i++)
             {
                 Vector3 corner = FaceVertices[faceIndex, i];
-                vertices.Add(new Vector3(position.X, position.Y, position.Z) + corner);
-                uvs.Add(faceUvs[i]);
+                vertices.Add(origin + corner);
             }
+
+            uvs.Add(new Vector2(uvRect.xMin, uvRect.yMin));
+            uvs.Add(new Vector2(uvRect.xMin, uvRect.yMax));
+            uvs.Add(new Vector2(uvRect.xMax, uvRect.yMax));
+            uvs.Add(new Vector2(uvRect.xMax, uvRect.yMin));
 
             triangles.Add(vertexStart + 0);
             triangles.Add(vertexStart + 1);
