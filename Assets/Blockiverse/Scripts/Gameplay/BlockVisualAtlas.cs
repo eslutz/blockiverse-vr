@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Blockiverse.Core;
 using Blockiverse.Voxel;
 using UnityEngine;
 
@@ -51,12 +52,20 @@ namespace Blockiverse.Gameplay
             Material material = CreateBaseMaterial(sourceMaterial);
 
             if (!TryGetBaseTexture(material, out Texture texture))
-                throw new InvalidOperationException(
-                    $"Authored block atlas is missing from the source material. Assign {AuthoredAtlasPath} to the block material.");
+            {
+                string message =
+                    $"Authored block atlas is missing from the source material. Assign {AuthoredAtlasPath} to the block material.";
+                BlockiverseLog.Warning(BlockiverseLogCategory.Assets, message);
+                throw new InvalidOperationException(message);
+            }
 
             if (!IsAuthoredAtlasTexture(texture))
-                throw new InvalidOperationException(
-                    $"Block material texture '{texture.name}' is not the expected authored atlas. Assign {AuthoredAtlasPath} ({Columns * TilePixels}x{Rows * TilePixels}).");
+            {
+                string message =
+                    $"Block material texture '{texture.name}' is not the expected authored atlas. Assign {AuthoredAtlasPath} ({Columns * TilePixels}x{Rows * TilePixels}).";
+                BlockiverseLog.Warning(BlockiverseLogCategory.Assets, message);
+                throw new InvalidOperationException(message);
+            }
 
             SetBaseColor(material, Color.white);
             material.name = "Blockiverse Authored Block Atlas Material";
@@ -74,6 +83,27 @@ namespace Blockiverse.Gameplay
         public static bool HasAuthoredTile(BlockId blockId)
         {
             return TileIndexByBlockId.ContainsKey(blockId.Value);
+        }
+
+        public static void ValidateRenderableBlockCoverage(BlockRegistry registry)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+
+            var missingTiles = new List<string>();
+            foreach (BlockDefinition block in registry.All)
+            {
+                if (block.IsRenderable && !HasAuthoredTile(block.Id))
+                    missingTiles.Add($"{block.Name} ({block.Id})");
+            }
+
+            if (missingTiles.Count > 0)
+            {
+                string message =
+                    $"Renderable blocks are missing visual atlas tile mappings: {string.Join(", ", missingTiles)}.";
+                BlockiverseLog.Warning(BlockiverseLogCategory.Assets, message);
+                throw new InvalidOperationException(message);
+            }
         }
 
         public static bool TryGetBaseTexture(Material material, out Texture texture)

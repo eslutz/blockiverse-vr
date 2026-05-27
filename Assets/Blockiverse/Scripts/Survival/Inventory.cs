@@ -87,7 +87,7 @@ namespace Blockiverse.Survival
             if (stack.IsEmpty)
                 return true;
 
-            registry.Get(stack.ItemId);
+            ValidateNonEmptyKnownItem(stack.ItemId);
 
             if (GetAvailableCapacity(stack.ItemId) < stack.Count)
                 return false;

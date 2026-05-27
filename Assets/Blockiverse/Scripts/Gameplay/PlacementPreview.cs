@@ -5,7 +5,14 @@ namespace Blockiverse.Gameplay
 {
     public sealed class PlacementPreview : MonoBehaviour
     {
+        static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
+        static readonly int ColorProperty = Shader.PropertyToID("_Color");
+        static readonly Color PlaceableColor = new(0.34f, 0.84f, 0.52f, 0.42f);
+        static readonly Color BlockedColor = new(0.95f, 0.25f, 0.20f, 0.42f);
+
         [SerializeField] Renderer targetRenderer;
+
+        MaterialPropertyBlock propertyBlock;
 
         public bool IsVisible => gameObject.activeSelf;
         public BlockPosition CurrentPosition { get; private set; }
@@ -26,9 +33,12 @@ namespace Blockiverse.Gameplay
             if (targetRenderer != null)
             {
                 targetRenderer.enabled = true;
-                targetRenderer.material.color = canPlace
-                    ? new Color(0.34f, 0.84f, 0.52f, 0.42f)
-                    : new Color(0.95f, 0.25f, 0.20f, 0.42f);
+                propertyBlock ??= new MaterialPropertyBlock();
+                targetRenderer.GetPropertyBlock(propertyBlock);
+                Color color = canPlace ? PlaceableColor : BlockedColor;
+                propertyBlock.SetColor(BaseColorProperty, color);
+                propertyBlock.SetColor(ColorProperty, color);
+                targetRenderer.SetPropertyBlock(propertyBlock);
             }
         }
 
@@ -44,6 +54,8 @@ namespace Blockiverse.Gameplay
         {
             if (targetRenderer == null)
                 targetRenderer = GetComponent<Renderer>();
+
+            propertyBlock = new MaterialPropertyBlock();
         }
     }
 }

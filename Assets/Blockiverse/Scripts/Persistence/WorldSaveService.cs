@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Blockiverse.Core;
 using Blockiverse.Survival;
 using Blockiverse.Voxel;
 using UnityEngine;
@@ -184,6 +185,10 @@ namespace Blockiverse.Persistence
             string tempPath = path + ".tmp";
             File.WriteAllText(tempPath, JsonUtility.ToJson(data, prettyPrint: true));
             ReplaceWithTempFile(tempPath, path);
+
+            BlockiverseLog.Info(
+                BlockiverseLogCategory.Persistence,
+                $"Saved world save file={SanitizeSavePath(path)} world={data.WorldName} schema={data.SchemaVersion} dimensions={data.Width}x{data.Height}x{data.Depth} changedBlocks={ChangedBlockCount(data)} inventorySlots={data.PlayerInventory.SlotCount} occupiedInventorySlots={OccupiedInventorySlotCount(data.PlayerInventory)}");
         }
 
         public WorldLoadResult Load(string path)
@@ -191,37 +196,50 @@ namespace Blockiverse.Persistence
             try
             {
                 if (!File.Exists(path))
-                    return WorldLoadResult.Failed($"World save does not exist: {path}");
+                    return FailedLoad(path, $"World save does not exist: {path}", "World save does not exist.");
 
                 string json = File.ReadAllText(path);
 
-                if (string.IsNullOrWhiteSpace(json) || !json.TrimEnd().EndsWith("}", StringComparison.Ordinal))
-                    return WorldLoadResult.Failed("World save is corrupt or incomplete.");
+                if (string.IsNullOrWhiteSpace(json) || !HasCompleteTopLevelJsonObject(json))
+                    return FailedLoad(path, "World save is corrupt or incomplete.");
 
                 WorldSaveData data = JsonUtility.FromJson<WorldSaveData>(json);
 
                 if (!IsValid(data, validateInventory: false, out string validationError))
-                    return WorldLoadResult.Failed($"World save is corrupt: {validationError}");
+                    return FailedLoad(path, $"World save is corrupt: {validationError}");
 
-                data = ApplyBuiltInMigrations(data);
+                int loadedSchemaVersion = data.SchemaVersion;
+                data = ApplyBuiltInMigrations(data, SanitizeSavePath(path));
 
                 if (data.SchemaVersion != CurrentSchemaVersion &&
                     !migrationRegistry.TryMigrateToCurrent(data, CurrentSchemaVersion, out data, out string migrationError))
                 {
-                    return WorldLoadResult.Failed(migrationError);
+                    return FailedLoad(path, migrationError);
                 }
 
-                data = ApplyBuiltInMigrations(data);
+                if (loadedSchemaVersion != data.SchemaVersion)
+                {
+                    BlockiverseLog.Info(
+                        BlockiverseLogCategory.Persistence,
+                        $"Migrated world save file={SanitizeSavePath(path)} fromSchema={loadedSchemaVersion} toSchema={data.SchemaVersion}");
+                }
+
                 EnsurePlayerInventoryDefaults(data);
 
                 if (!IsValid(data, validateInventory: true, out validationError))
-                    return WorldLoadResult.Failed($"World save is corrupt: {validationError}");
+                    return FailedLoad(path, $"World save is corrupt: {validationError}");
 
+                BlockiverseLog.Info(
+                    BlockiverseLogCategory.Persistence,
+                    $"Loaded world save file={SanitizeSavePath(path)} world={data.WorldName} schema={data.SchemaVersion} dimensions={data.Width}x{data.Height}x{data.Depth} changedBlocks={ChangedBlockCount(data)} inventorySlots={data.PlayerInventory.SlotCount} occupiedInventorySlots={OccupiedInventorySlotCount(data.PlayerInventory)}");
                 return WorldLoadResult.Loaded(data);
             }
             catch (Exception exception) when (exception is IOException || exception is ArgumentException || exception is UnauthorizedAccessException)
             {
-                return WorldLoadResult.Failed($"World save is corrupt or unreadable: {exception.Message}");
+                return FailedLoad(
+                    path,
+                    $"World save is corrupt or unreadable: {exception.Message}",
+                    $"World save is corrupt or unreadable: {exception.GetType().Name}");
             }
         }
 
@@ -289,15 +307,109 @@ namespace Blockiverse.Persistence
             };
         }
 
-        static WorldSaveData ApplyBuiltInMigrations(WorldSaveData data)
+        static WorldSaveData ApplyBuiltInMigrations(WorldSaveData data, string saveName)
         {
             if (data != null && data.SchemaVersion == 1)
             {
                 data.SchemaVersion = CurrentSchemaVersion;
                 data.PlayerInventory = CreateEmptyInventoryData();
+                BlockiverseLog.Info(
+                    BlockiverseLogCategory.Persistence,
+                    $"Applied built-in world save migration file={saveName} fromSchema=1 toSchema={CurrentSchemaVersion}");
             }
 
             return data;
+        }
+
+        static bool HasCompleteTopLevelJsonObject(string json)
+        {
+            int index = 0;
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+                index++;
+
+            if (index >= json.Length || json[index] != '{')
+                return false;
+
+            bool inString = false;
+            bool escaped = false;
+            bool completedTopLevelObject = false;
+            int objectDepth = 0;
+            int arrayDepth = 0;
+
+            for (; index < json.Length; index++)
+            {
+                char character = json[index];
+
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                    }
+                    else if (character == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else if (character == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    if (completedTopLevelObject)
+                        return false;
+
+                    inString = true;
+                    continue;
+                }
+
+                switch (character)
+                {
+                    case '{':
+                        if (completedTopLevelObject)
+                            return false;
+
+                        objectDepth++;
+                        break;
+
+                    case '}':
+                        objectDepth--;
+                        if (objectDepth < 0)
+                            return false;
+
+                        if (objectDepth == 0 && arrayDepth == 0)
+                            completedTopLevelObject = true;
+                        break;
+
+                    case '[':
+                        if (completedTopLevelObject)
+                            return false;
+
+                        arrayDepth++;
+                        break;
+
+                    case ']':
+                        arrayDepth--;
+                        if (arrayDepth < 0)
+                            return false;
+                        break;
+
+                    default:
+                        if (completedTopLevelObject && !char.IsWhiteSpace(character))
+                            return false;
+                        break;
+                }
+            }
+
+            return completedTopLevelObject &&
+                   objectDepth == 0 &&
+                   arrayDepth == 0 &&
+                   !inString &&
+                   !escaped;
         }
 
         static void EnsurePlayerInventoryDefaults(WorldSaveData data)
@@ -487,6 +599,33 @@ namespace Blockiverse.Persistence
                 File.Delete(path);
                 File.Move(tempPath, path);
             }
+        }
+
+        WorldLoadResult FailedLoad(string path, string error, string logReason = null)
+        {
+            BlockiverseLog.Warning(
+                BlockiverseLogCategory.Persistence,
+                $"Failed to load world save file={SanitizeSavePath(path)} reason={logReason ?? error}");
+            return WorldLoadResult.Failed(error);
+        }
+
+        static string SanitizeSavePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return "<empty>";
+
+            string fileName = Path.GetFileName(path);
+            return string.IsNullOrWhiteSpace(fileName) ? "<unnamed>" : fileName;
+        }
+
+        static int ChangedBlockCount(WorldSaveData data)
+        {
+            return data.ChangedBlocks?.Length ?? 0;
+        }
+
+        static int OccupiedInventorySlotCount(SavedPlayerInventory inventory)
+        {
+            return inventory?.Slots?.Length ?? 0;
         }
     }
 }

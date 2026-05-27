@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Blockiverse.Survival;
 using Blockiverse.UI;
 using NUnit.Framework;
@@ -17,7 +19,7 @@ namespace Blockiverse.Tests.EditMode
             foreach (GameObject target in objectsToDestroy)
             {
                 if (target != null)
-                    Object.DestroyImmediate(target);
+                    UnityEngine.Object.DestroyImmediate(target);
             }
 
             objectsToDestroy.Clear();
@@ -41,6 +43,17 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(slotLabels[1].text, Is.EqualTo("Empty"));
             Assert.That(slotLabels[2].text, Is.EqualTo("Pick x1"));
             Assert.That(selectedHotbarLabel.text, Is.EqualTo("Hotbar 2 / 2"));
+        }
+
+        [Test]
+        public void InventoryPanelStackFormattingDoesNotCreateDefaultRegistryPerSlot()
+        {
+            MethodInfo formatStack = typeof(SurvivalInventoryPanel).GetMethod(
+                "FormatStack",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(formatStack, Is.Not.Null);
+            Assert.That(CallsMethod(formatStack, typeof(ItemRegistry), nameof(ItemRegistry.CreateDefault)), Is.False);
         }
 
         [Test]
@@ -110,6 +123,32 @@ namespace Blockiverse.Tests.EditMode
             var gameObject = new GameObject(name);
             objectsToDestroy.Add(gameObject);
             return gameObject.AddComponent<T>();
+        }
+
+        static bool CallsMethod(MethodInfo method, Type declaringType, string methodName)
+        {
+            byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? Array.Empty<byte>();
+
+            for (int i = 0; i <= il.Length - 5; i++)
+            {
+                if (il[i] != 0x28 && il[i] != 0x6F)
+                    continue;
+
+                int metadataToken = BitConverter.ToInt32(il, i + 1);
+
+                try
+                {
+                    MethodBase calledMethod = method.Module.ResolveMethod(metadataToken);
+                    if (calledMethod.DeclaringType == declaringType && calledMethod.Name == methodName)
+                        return true;
+                }
+                catch (ArgumentException)
+                {
+                    // Operand bytes can look like opcodes when scanning raw IL.
+                }
+            }
+
+            return false;
         }
     }
 }
