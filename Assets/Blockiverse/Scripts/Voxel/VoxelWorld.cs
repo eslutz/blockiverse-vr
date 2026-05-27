@@ -64,10 +64,9 @@ namespace Blockiverse.Voxel
             var change = new BlockChange(position, previous, block);
 
             if (trackChange)
-            {
                 changedBlocks[position] = change;
-                BlockChanged?.Invoke(change);
-            }
+
+            BlockChanged?.Invoke(change);
         }
 
         public ChunkCoordinate GetChunkCoordinate(BlockPosition position)

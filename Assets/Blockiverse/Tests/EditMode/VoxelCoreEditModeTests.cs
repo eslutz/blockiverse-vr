@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Blockiverse.Gameplay;
 using Blockiverse.Voxel;
 using Blockiverse.WorldGen;
 using NUnit.Framework;
@@ -77,10 +78,11 @@ namespace Blockiverse.Tests.EditMode
         }
 
         [Test]
-        public void UntrackedBlockMutationDoesNotRecordOrEmitChange()
+        public void UntrackedBlockMutationDoesNotRecordPersistenceChangeButQueuesRenderChange()
         {
             var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 42);
             var position = new BlockPosition(1, 1, 1);
+            var rebuildQueue = new ChunkRebuildQueue(world);
             int eventCount = 0;
             world.BlockChanged += _ => eventCount++;
 
@@ -88,7 +90,8 @@ namespace Blockiverse.Tests.EditMode
 
             Assert.That(world.GetBlock(position), Is.EqualTo(BlockRegistry.Slate));
             Assert.That(world.GetChangedBlocks(), Is.Empty);
-            Assert.That(eventCount, Is.Zero);
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(rebuildQueue.Count, Is.EqualTo(1));
         }
 
         [Test]

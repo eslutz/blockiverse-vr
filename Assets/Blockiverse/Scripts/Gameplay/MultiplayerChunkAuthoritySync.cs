@@ -28,6 +28,7 @@ namespace Blockiverse.Gameplay
         NetworkManager subscribedNetworkManager;
         BlockMutationAuthority mutationAuthority;
         bool messagesRegistered;
+        bool hasHostGenerationSnapshotForSession;
 
         public ChunkAuthorityBoundary CurrentBoundary { get; private set; } = ChunkAuthorityBoundary.ForHost();
         public BlockMutationAuthority MutationAuthority => ResolveMutationAuthority();
@@ -41,6 +42,7 @@ namespace Blockiverse.Gameplay
         public int AppliedGenerationSnapshotCount { get; private set; }
         public int AppliedSnapshotBlockCount { get; private set; }
         public int ReceivedMutationRejectionCount { get; private set; }
+        public bool HasHostGenerationSnapshotForSession => hasHostGenerationSnapshotForSession;
 
         public void Configure(BlockiverseNetworkSession targetSession, CreativeWorldManager targetWorldManager)
         {
@@ -93,7 +95,7 @@ namespace Blockiverse.Gameplay
 
             if (IsClientRequestMode)
             {
-                if (AppliedGenerationSnapshotCount == 0)
+                if (!hasHostGenerationSnapshotForSession)
                 {
                     int chunkSize = worldManager != null && worldManager.World != null
                         ? worldManager.World.ChunkSize
@@ -150,6 +152,10 @@ namespace Blockiverse.Gameplay
         void HandleClientStarted()
         {
             RefreshAuthorityBoundary();
+
+            if (CurrentBoundary.MustRequestMutations)
+                hasHostGenerationSnapshotForSession = false;
+
             RegisterMessageHandlers();
         }
 
@@ -179,6 +185,7 @@ namespace Blockiverse.Gameplay
 
         void HandleClientStopped(bool wasHost)
         {
+            hasHostGenerationSnapshotForSession = false;
             UnregisterMessageHandlers();
             RefreshAuthorityBoundary();
         }
@@ -635,6 +642,7 @@ namespace Blockiverse.Gameplay
                 ? new FlatCreativeWorldPreset(registry, settings).Generate()
                 : new SurvivalLiteWorldPreset(registry, settings).Generate();
             worldManager.InitializeGeneratedWorld(new GeneratedCreativeWorld(registry, settings, world, preset), this);
+            hasHostGenerationSnapshotForSession = true;
             AppliedGenerationSnapshotCount++;
         }
 

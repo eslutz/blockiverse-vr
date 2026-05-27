@@ -616,6 +616,7 @@ namespace Blockiverse.Tests.Networking.PlayMode
 
             yield return WaitFor(
                 () => clientSync.AppliedGenerationSnapshotCount >= 1 &&
+                      clientSync.HasHostGenerationSnapshotForSession &&
                       clientWorldManager.World.Bounds == hostWorldManager.World.Bounds &&
                       clientWorldManager.World.Seed == hostWorldManager.World.Seed &&
                       clientWorldManager.World.GetBlock(stalePosition) == BlockRegistry.Loam,
@@ -692,11 +693,18 @@ namespace Blockiverse.Tests.Networking.PlayMode
 
             Assert.That(hostSync.CurrentBoundary.CanServeLateJoinSync, Is.True);
             Assert.That(hostSync.SentLateJoinSnapshotCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(lateJoinSync.HasHostGenerationSnapshotForSession, Is.True);
             Assert.That(lateJoinSync.AppliedGenerationSnapshotCount, Is.GreaterThanOrEqualTo(1));
             Assert.That(lateJoinSync.AppliedSnapshotBlockCount, Is.GreaterThanOrEqualTo(1));
             Assert.That(lateJoinWorldManager.World.Bounds, Is.EqualTo(hostWorldManager.World.Bounds));
             Assert.That(lateJoinWorldManager.World.Seed, Is.EqualTo(hostWorldManager.World.Seed));
             Assert.That(lateJoinWorldManager.GenerationPreset, Is.EqualTo(hostWorldManager.GenerationPreset));
+
+            clientSession.StopSession();
+            yield return WaitFor(
+                () => !clientSession.NetworkManager.IsListening,
+                "Client did not stop after chunk authority sync validation.");
+            Assert.That(clientSync.HasHostGenerationSnapshotForSession, Is.False);
         }
 
         [UnityTearDown]
