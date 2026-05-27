@@ -25,8 +25,10 @@ namespace Blockiverse.Gameplay
         [SerializeField] BlockiverseNetworkSession session;
         [SerializeField] CreativeWorldManager worldManager;
 
+        readonly Dictionary<uint, BlockMutationRequest> pendingMutationRequests = new();
         NetworkManager subscribedNetworkManager;
         BlockMutationAuthority mutationAuthority;
+        uint nextMutationRequestId = 1;
         bool messagesRegistered;
         bool hasHostGenerationSnapshotForSession;
 
@@ -42,6 +44,11 @@ namespace Blockiverse.Gameplay
         public int AppliedGenerationSnapshotCount { get; private set; }
         public int AppliedSnapshotBlockCount { get; private set; }
         public int ReceivedMutationRejectionCount { get; private set; }
+        public int AcceptedMutationResponseCount { get; private set; }
+        public int PendingMutationRequestCount => pendingMutationRequests.Count;
+        public uint LastSentMutationRequestId { get; private set; }
+        public uint LastReceivedMutationRequestId { get; private set; }
+        public uint LastCompletedMutationRequestId { get; private set; }
         public bool HasHostGenerationSnapshotForSession => hasHostGenerationSnapshotForSession;
 
         public void Configure(BlockiverseNetworkSession targetSession, CreativeWorldManager targetWorldManager)
@@ -107,9 +114,12 @@ namespace Blockiverse.Gameplay
                     return LastMutationResult;
                 }
 
-                SendMutationRequest(request);
+                uint requestId = AllocateMutationRequestId();
+                SendMutationRequest(requestId, request);
                 requestSentToHost = true;
-                LastMutationResult = BlockMutationResult.RequestSent(ChunkCoordinate.FromBlockPosition(request.Position, ResolveWorld().ChunkSize));
+                LastMutationResult = BlockMutationResult.RequestSent(
+                    ChunkCoordinate.FromBlockPosition(request.Position, ResolveWorld().ChunkSize),
+                    requestId);
                 return LastMutationResult;
             }
 
@@ -154,7 +164,10 @@ namespace Blockiverse.Gameplay
             RefreshAuthorityBoundary();
 
             if (CurrentBoundary.MustRequestMutations)
+            {
                 hasHostGenerationSnapshotForSession = false;
+                ResetPendingMutationRequests();
+            }
 
             RegisterMessageHandlers();
         }
@@ -186,6 +199,7 @@ namespace Blockiverse.Gameplay
         void HandleClientStopped(bool wasHost)
         {
             hasHostGenerationSnapshotForSession = false;
+            ResetPendingMutationRequests();
             UnregisterMessageHandlers();
             RefreshAuthorityBoundary();
         }
@@ -203,18 +217,19 @@ namespace Blockiverse.Gameplay
                 return;
             }
 
-            BlockMutationRequest request = ReadMutationRequest(senderClientId, ref reader);
+            BlockMutationRequest request = ReadMutationRequest(senderClientId, ref reader, out uint requestId);
             ReceivedMutationRequestCount++;
-            BlockMutationResult result = ResolveMutationAuthority().TryCommit(request, out _);
+            LastReceivedMutationRequestId = requestId;
+            BlockMutationResult result = ResolveMutationAuthority().TryCommit(request, out _).WithRpcRequestId(requestId);
             LastMutationResult = result;
 
             if (result.Accepted)
             {
-                BroadcastDelta(result.Change);
+                BroadcastDelta(result.Change, request.RequestingClientId, requestId);
             }
             else
             {
-                SendMutationResult(senderClientId, request, result);
+                SendMutationResult(senderClientId, requestId, request, result);
             }
         }
 
@@ -225,12 +240,16 @@ namespace Blockiverse.Gameplay
             if (senderClientId != CurrentBoundary.HostClientId || !CurrentBoundary.MustRequestMutations)
                 return;
 
-            BlockChange change = ReadBlockChange(ref reader);
+            BlockChange change = ReadMutationDelta(ref reader, out ulong requestingClientId, out uint requestId);
             ApplyAuthoritativeBlock(change.Position, change.NewBlock, trackChange: false);
             LastMutationResult = BlockMutationResult.Accept(
                 change,
-                ChunkCoordinate.FromBlockPosition(change.Position, ResolveWorld().ChunkSize));
+                ChunkCoordinate.FromBlockPosition(change.Position, ResolveWorld().ChunkSize),
+                requestId);
             AppliedRemoteDeltaCount++;
+
+            if (TryCompletePendingMutationRequest(requestingClientId, requestId))
+                AcceptedMutationResponseCount++;
         }
 
         void HandleChunkSnapshotMessage(ulong senderClientId, FastBufferReader reader)
@@ -258,8 +277,8 @@ namespace Blockiverse.Gameplay
             if (senderClientId != CurrentBoundary.HostClientId || !CurrentBoundary.MustRequestMutations)
                 return;
 
+            reader.ReadValueSafe(out uint requestId);
             BlockPosition position = ReadBlockPosition(ref reader);
-            reader.ReadValueSafe(out int _);
             reader.ReadValueSafe(out int rejectionReason);
             reader.ReadValueSafe(out bool hasAuthoritativeBlock);
             reader.ReadValueSafe(out int authoritativeBlock);
@@ -268,22 +287,27 @@ namespace Blockiverse.Gameplay
             LastMutationResult = BlockMutationResult.Reject(
                 (BlockMutationRejectionReason)rejectionReason,
                 chunk,
-                "Host rejected the block mutation request.");
+                "Host rejected the block mutation request.",
+                requestId);
             ReceivedMutationRejectionCount++;
+            TryCompletePendingMutationRequest(CurrentBoundary.LocalClientId, requestId);
 
             if (hasAuthoritativeBlock)
                 ApplyAuthoritativeBlock(position, new BlockId(authoritativeBlock), trackChange: false);
         }
 
-        void SendMutationRequest(BlockMutationRequest request)
+        void SendMutationRequest(uint requestId, BlockMutationRequest request)
         {
             NetworkManager networkManager = ResolveNetworkManager();
             RegisterMessageHandlers();
+            pendingMutationRequests[requestId] = request;
+            LastSentMutationRequestId = requestId;
 
             var writer = new FastBufferWriter(MutationRequestMessageBytes, Allocator.Temp);
 
             try
             {
+                writer.WriteValueSafe(requestId);
                 WriteBlockPosition(ref writer, request.Position);
                 writer.WriteValueSafe(request.NewBlock.Value);
                 writer.WriteValueSafe(request.HasExpectedCurrentBlock);
@@ -300,7 +324,7 @@ namespace Blockiverse.Gameplay
             }
         }
 
-        void BroadcastDelta(BlockChange change)
+        void BroadcastDelta(BlockChange change, ulong requestingClientId = 0, uint requestId = 0)
         {
             RefreshAuthorityBoundary();
 
@@ -318,6 +342,8 @@ namespace Blockiverse.Gameplay
 
             try
             {
+                writer.WriteValueSafe(requestingClientId);
+                writer.WriteValueSafe(requestId);
                 WriteBlockChange(ref writer, change);
                 SendToRemoteClients(MutationDeltaMessage, writer);
                 BroadcastDeltaCount++;
@@ -328,7 +354,7 @@ namespace Blockiverse.Gameplay
             }
         }
 
-        void SendMutationResult(ulong clientId, BlockMutationRequest request, BlockMutationResult result)
+        void SendMutationResult(ulong clientId, uint requestId, BlockMutationRequest request, BlockMutationResult result)
         {
             NetworkManager networkManager = ResolveNetworkManagerOrNull();
 
@@ -343,15 +369,14 @@ namespace Blockiverse.Gameplay
             RegisterMessageHandlers();
             VoxelWorld world = ResolveWorld();
             BlockPosition position = request.Position;
-            BlockId requestedBlock = request.NewBlock;
             bool hasAuthoritativeBlock = world.Bounds.Contains(position);
             BlockId authoritativeBlock = hasAuthoritativeBlock ? world.GetBlock(position) : default;
             var writer = new FastBufferWriter(MutationResultMessageBytes, Allocator.Temp);
 
             try
             {
+                writer.WriteValueSafe(requestId);
                 WriteBlockPosition(ref writer, position);
-                writer.WriteValueSafe(requestedBlock.Value);
                 writer.WriteValueSafe((int)result.RejectionReason);
                 writer.WriteValueSafe(hasAuthoritativeBlock);
                 writer.WriteValueSafe(authoritativeBlock.Value);
@@ -361,6 +386,35 @@ namespace Blockiverse.Gameplay
             {
                 writer.Dispose();
             }
+        }
+
+        uint AllocateMutationRequestId()
+        {
+            uint requestId = nextMutationRequestId++;
+
+            if (nextMutationRequestId == 0)
+                nextMutationRequestId = 1;
+
+            return requestId;
+        }
+
+        bool TryCompletePendingMutationRequest(ulong requestingClientId, uint requestId)
+        {
+            if (requestId == 0 || requestingClientId != CurrentBoundary.LocalClientId)
+                return false;
+            if (!pendingMutationRequests.Remove(requestId))
+                return false;
+
+            LastCompletedMutationRequestId = requestId;
+            return true;
+        }
+
+        void ResetPendingMutationRequests()
+        {
+            pendingMutationRequests.Clear();
+            nextMutationRequestId = 1;
+            LastSentMutationRequestId = 0;
+            LastCompletedMutationRequestId = 0;
         }
 
         void SendLateJoinSnapshot(ulong clientId)
@@ -646,6 +700,13 @@ namespace Blockiverse.Gameplay
             AppliedGenerationSnapshotCount++;
         }
 
+        static BlockChange ReadMutationDelta(ref FastBufferReader reader, out ulong requestingClientId, out uint requestId)
+        {
+            reader.ReadValueSafe(out requestingClientId);
+            reader.ReadValueSafe(out requestId);
+            return ReadBlockChange(ref reader);
+        }
+
         static BlockChange ReadBlockChange(ref FastBufferReader reader)
         {
             BlockPosition position = ReadBlockPosition(ref reader);
@@ -654,8 +715,9 @@ namespace Blockiverse.Gameplay
             return new BlockChange(position, new BlockId(previousBlock), new BlockId(newBlock));
         }
 
-        static BlockMutationRequest ReadMutationRequest(ulong requestingClientId, ref FastBufferReader reader)
+        static BlockMutationRequest ReadMutationRequest(ulong requestingClientId, ref FastBufferReader reader, out uint requestId)
         {
+            reader.ReadValueSafe(out requestId);
             BlockPosition position = ReadBlockPosition(ref reader);
             reader.ReadValueSafe(out int newBlock);
             reader.ReadValueSafe(out bool hasExpectedCurrentBlock);

@@ -630,7 +630,10 @@ namespace Blockiverse.Tests.Networking.PlayMode
 
             Assert.That(requestSentToHost, Is.True);
             Assert.That(requestResult.PendingHostValidation, Is.True);
+            Assert.That(requestResult.RpcRequestId, Is.EqualTo(1));
             Assert.That(clientCommand, Is.Null);
+            Assert.That(clientSync.LastSentMutationRequestId, Is.EqualTo(1));
+            Assert.That(clientSync.PendingMutationRequestCount, Is.EqualTo(1));
             Assert.That(clientWorldManager.World.GetBlock(editPosition), Is.EqualTo(BlockRegistry.Air));
 
             yield return WaitFor(
@@ -643,9 +646,14 @@ namespace Blockiverse.Tests.Networking.PlayMode
             Assert.That(clientSync.CurrentBoundary.MustRequestMutations, Is.True);
             Assert.That(clientSync.CurrentBoundary.CanBroadcastDeltas, Is.False);
             Assert.That(hostSync.ReceivedMutationRequestCount, Is.EqualTo(1));
+            Assert.That(hostSync.LastReceivedMutationRequestId, Is.EqualTo(1));
             Assert.That(hostSync.BroadcastDeltaCount, Is.EqualTo(1));
             Assert.That(clientSync.SentMutationRequestCount, Is.EqualTo(1));
             Assert.That(clientSync.AppliedRemoteDeltaCount, Is.EqualTo(1));
+            Assert.That(clientSync.AcceptedMutationResponseCount, Is.EqualTo(1));
+            Assert.That(clientSync.PendingMutationRequestCount, Is.Zero);
+            Assert.That(clientSync.LastCompletedMutationRequestId, Is.EqualTo(1));
+            Assert.That(clientSync.LastMutationResult.RpcRequestId, Is.EqualTo(1));
 
             BlockMutationResult rejectedRequest = clientSync.TrySubmitMutation(
                 new BlockPosition(-1, 2, 2),
@@ -655,13 +663,18 @@ namespace Blockiverse.Tests.Networking.PlayMode
 
             Assert.That(rejectedRequestSentToHost, Is.True);
             Assert.That(rejectedRequest.PendingHostValidation, Is.True);
+            Assert.That(rejectedRequest.RpcRequestId, Is.EqualTo(2));
             Assert.That(rejectedClientCommand, Is.Null);
+            Assert.That(clientSync.PendingMutationRequestCount, Is.EqualTo(1));
 
             yield return WaitFor(
                 () => clientSync.LastMutationResult.RejectionReason == BlockMutationRejectionReason.PositionOutOfBounds,
                 "Host did not report deterministic rejection for an invalid client mutation request.");
 
             Assert.That(clientSync.ReceivedMutationRejectionCount, Is.EqualTo(1));
+            Assert.That(clientSync.PendingMutationRequestCount, Is.Zero);
+            Assert.That(clientSync.LastCompletedMutationRequestId, Is.EqualTo(2));
+            Assert.That(clientSync.LastMutationResult.RpcRequestId, Is.EqualTo(2));
 
             clientWorldManager.World.SetBlock(stalePosition, BlockRegistry.Air, trackChange: false);
             BlockMutationResult staleRequest = clientSync.TrySubmitMutation(
@@ -672,6 +685,7 @@ namespace Blockiverse.Tests.Networking.PlayMode
 
             Assert.That(staleRequestSentToHost, Is.True);
             Assert.That(staleRequest.PendingHostValidation, Is.True);
+            Assert.That(staleRequest.RpcRequestId, Is.EqualTo(3));
             Assert.That(staleClientCommand, Is.Null);
 
             yield return WaitFor(
@@ -680,6 +694,10 @@ namespace Blockiverse.Tests.Networking.PlayMode
                 "Host did not reject and correct a stale client mutation request.");
 
             Assert.That(clientSync.ReceivedMutationRejectionCount, Is.EqualTo(2));
+            Assert.That(hostSync.LastReceivedMutationRequestId, Is.EqualTo(3));
+            Assert.That(clientSync.PendingMutationRequestCount, Is.Zero);
+            Assert.That(clientSync.LastCompletedMutationRequestId, Is.EqualTo(3));
+            Assert.That(clientSync.LastMutationResult.RpcRequestId, Is.EqualTo(3));
 
             Assert.That(lateJoinClientSession.StartClient(BlockiverseNetworkConfig.DefaultAddress), Is.True);
             yield return WaitFor(
@@ -705,6 +723,9 @@ namespace Blockiverse.Tests.Networking.PlayMode
                 () => !clientSession.NetworkManager.IsListening,
                 "Client did not stop after chunk authority sync validation.");
             Assert.That(clientSync.HasHostGenerationSnapshotForSession, Is.False);
+            Assert.That(clientSync.PendingMutationRequestCount, Is.Zero);
+            Assert.That(clientSync.LastSentMutationRequestId, Is.Zero);
+            Assert.That(clientSync.LastCompletedMutationRequestId, Is.Zero);
         }
 
         [UnityTearDown]
