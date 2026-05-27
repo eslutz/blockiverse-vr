@@ -4,17 +4,77 @@ using System.IO;
 using System.Linq;
 using Blockiverse.Core;
 using Blockiverse.Networking;
+using Blockiverse.UI;
 using NUnit.Framework;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Blockiverse.Tests.Networking.PlayMode
 {
     public sealed class MultiplayerSessionPlayModeTests
     {
         static ushort nextPort = 7810;
+
+        [UnityTest]
+        public IEnumerator MultiplayerTestSceneSessionMenuHostsAndJoinsLocalClient()
+        {
+            yield return LoadMultiplayerTestScene();
+
+            BlockiverseNetworkSession hostSession = UnityEngine.Object.FindFirstObjectByType<BlockiverseNetworkSession>();
+            BlockiverseMultiplayerSessionMenu hostMenu = UnityEngine.Object.FindFirstObjectByType<BlockiverseMultiplayerSessionMenu>();
+            Assert.That(hostSession, Is.Not.Null);
+            Assert.That(hostMenu, Is.Not.Null);
+            Assert.That(hostMenu.Session, Is.SameAs(hostSession));
+            Assert.That(hostMenu.HostButton, Is.Not.Null);
+            Assert.That(hostMenu.JoinButton, Is.Not.Null);
+            Assert.That(hostMenu.StopButton, Is.Not.Null);
+            Assert.That(hostMenu.AddressInput, Is.Not.Null);
+            Assert.That(hostMenu.StatusText, Is.Not.Null);
+            AssertSceneHasUiInputSystem();
+
+            BlockiverseNetworkSession clientSession = CreateClientSession(hostSession);
+            BlockiverseMultiplayerSessionMenu clientMenu = CreateSessionMenu("Client Session Menu", clientSession);
+            ushort port = NextPort();
+            var testConfig = new BlockiverseNetworkConfig(
+                BlockiverseNetworkConfig.DefaultAddress,
+                BlockiverseNetworkConfig.DefaultAddress,
+                port);
+
+            hostSession.Configure(testConfig);
+            clientSession.Configure(testConfig);
+
+            hostMenu.HostButton.onClick.Invoke();
+            yield return WaitFor(
+                () => hostSession.NetworkManager.IsHost && hostSession.CurrentState == BlockiverseConnectionState.Hosting,
+                "Host menu did not start host.");
+
+            hostMenu.RefreshStatus();
+            StringAssert.Contains("Hosting LAN session", hostMenu.StatusText.text);
+
+            clientMenu.AddressInput.text = string.Empty;
+            clientMenu.JoinButton.onClick.Invoke();
+            yield return WaitFor(
+                () => clientSession.NetworkManager.IsConnectedClient &&
+                      hostSession.NetworkManager.ConnectedClientsIds.Count == 2,
+                "Client menu did not connect to host.");
+
+            clientMenu.RefreshStatus();
+            Assert.That(clientMenu.ResolveJoinAddress(), Is.EqualTo(BlockiverseNetworkConfig.DefaultAddress));
+            StringAssert.Contains("Connected to LAN session", clientMenu.StatusText.text);
+
+            hostMenu.StopButton.onClick.Invoke();
+            yield return WaitFor(
+                () => !hostSession.NetworkManager.IsListening && !clientSession.NetworkManager.IsListening,
+                "Host menu shutdown did not stop all local session managers.");
+
+            hostMenu.RefreshStatus();
+            StringAssert.Contains("LAN session stopped", hostMenu.StatusText.text);
+        }
 
         [UnityTest]
         public IEnumerator MultiplayerTestSceneStartsHostAndConnectsLocalClient()
@@ -112,6 +172,44 @@ namespace Blockiverse.Tests.Networking.PlayMode
             return clientSession;
         }
 
+        static BlockiverseMultiplayerSessionMenu CreateSessionMenu(string name, BlockiverseNetworkSession session)
+        {
+            GameObject menuObject = new(name);
+            BlockiverseMultiplayerSessionMenu menu = menuObject.AddComponent<BlockiverseMultiplayerSessionMenu>();
+            Button hostButton = CreateButton("Host Button", menuObject.transform);
+            Button joinButton = CreateButton("Join Button", menuObject.transform);
+            Button stopButton = CreateButton("Stop Button", menuObject.transform);
+            InputField addressInput = CreateInputField("Address Input", menuObject.transform);
+            Text statusText = CreateText("Status", menuObject.transform);
+
+            menu.Configure(session);
+            menu.ConfigureControls(hostButton, joinButton, stopButton, addressInput, statusText);
+            return menu;
+        }
+
+        static Button CreateButton(string name, Transform parent)
+        {
+            GameObject buttonObject = new(name, typeof(RectTransform));
+            buttonObject.transform.SetParent(parent, false);
+            return buttonObject.AddComponent<Button>();
+        }
+
+        static InputField CreateInputField(string name, Transform parent)
+        {
+            GameObject inputObject = new(name, typeof(RectTransform));
+            inputObject.transform.SetParent(parent, false);
+            InputField input = inputObject.AddComponent<InputField>();
+            input.textComponent = CreateText("Text", inputObject.transform);
+            return input;
+        }
+
+        static Text CreateText(string name, Transform parent)
+        {
+            GameObject textObject = new(name, typeof(RectTransform));
+            textObject.transform.SetParent(parent, false);
+            return textObject.AddComponent<Text>();
+        }
+
         static ushort NextPort()
         {
             return nextPort++;
@@ -140,6 +238,14 @@ namespace Blockiverse.Tests.Networking.PlayMode
                 return;
 
             Assert.That(networkManager.SpawnManager.SpawnedObjectsList.Count, Is.Zero);
+        }
+
+        static void AssertSceneHasUiInputSystem()
+        {
+            EventSystem[] eventSystems = UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
+
+            Assert.That(eventSystems, Has.Length.EqualTo(1));
+            Assert.That(eventSystems[0].GetComponent<InputSystemUIInputModule>(), Is.Not.Null);
         }
     }
 }
