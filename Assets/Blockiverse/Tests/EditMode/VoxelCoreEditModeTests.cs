@@ -77,6 +77,21 @@ namespace Blockiverse.Tests.EditMode
         }
 
         [Test]
+        public void UntrackedBlockMutationDoesNotRecordOrEmitChange()
+        {
+            var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 42);
+            var position = new BlockPosition(1, 1, 1);
+            int eventCount = 0;
+            world.BlockChanged += _ => eventCount++;
+
+            world.SetBlock(position, BlockRegistry.Slate, trackChange: false);
+
+            Assert.That(world.GetBlock(position), Is.EqualTo(BlockRegistry.Slate));
+            Assert.That(world.GetChangedBlocks(), Is.Empty);
+            Assert.That(eventCount, Is.Zero);
+        }
+
+        [Test]
         public void BoundedWorldRejectsOutOfRangeCoordinates()
         {
             var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 7);

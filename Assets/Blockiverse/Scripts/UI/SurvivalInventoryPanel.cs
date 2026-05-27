@@ -7,6 +7,8 @@ namespace Blockiverse.UI
 {
     public sealed class SurvivalInventoryPanel : MonoBehaviour
     {
+        static readonly ItemRegistry DefaultItemRegistry = ItemRegistry.CreateDefault();
+
         [SerializeField] Text[] slotLabels;
         [SerializeField] Text selectedHotbarLabel;
 
@@ -24,7 +26,7 @@ namespace Blockiverse.UI
         public void Bind(Inventory targetInventory, ItemRegistry registry = null, int selectedHotbarSlotIndex = 0)
         {
             inventory = targetInventory ?? throw new ArgumentNullException(nameof(targetInventory));
-            itemRegistry = registry ?? ItemRegistry.CreateDefault();
+            itemRegistry = registry ?? DefaultItemRegistry;
             SetSelectedHotbarSlotIndex(selectedHotbarSlotIndex);
         }
 
@@ -74,7 +76,7 @@ namespace Blockiverse.UI
             if (stack.IsEmpty)
                 return "Empty";
 
-            ItemDefinition definition = (registry ?? ItemRegistry.CreateDefault()).Get(stack.ItemId);
+            ItemDefinition definition = (registry ?? DefaultItemRegistry).Get(stack.ItemId);
             return $"{definition.Name} x{stack.Count}";
         }
 
