@@ -46,6 +46,41 @@ namespace Blockiverse.Tests.EditMode
         }
 
         [Test]
+        public void ApplyingLoadedDeltasDoesNotEmitBlockChangeEvents()
+        {
+            var data = new WorldSaveData
+            {
+                SchemaVersion = WorldSaveService.CurrentSchemaVersion,
+                WorldName = "loaded",
+                Width = 4,
+                Height = 4,
+                Depth = 4,
+                ChunkSize = 16,
+                Seed = 1,
+                ChangedBlocks = new[]
+                {
+                    new SavedBlockDelta { X = 1, Y = 1, Z = 1, BlockId = BlockRegistry.Slate.Value }
+                },
+                PlayerInventory = new SavedPlayerInventory
+                {
+                    SlotCount = Inventory.DefaultSlotCount,
+                    HotbarSlotCount = Inventory.DefaultHotbarSlotCount,
+                    SelectedHotbarSlotIndex = 0,
+                    Slots = new SavedInventorySlot[0]
+                }
+            };
+            var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 1);
+            int eventCount = 0;
+            world.BlockChanged += _ => eventCount++;
+
+            WorldLoadResult.Loaded(data).ApplyTo(world);
+
+            Assert.That(world.GetBlock(new BlockPosition(1, 1, 1)), Is.EqualTo(BlockRegistry.Slate));
+            Assert.That(world.GetChangedBlocks(), Is.Empty);
+            Assert.That(eventCount, Is.Zero);
+        }
+
+        [Test]
         public void SaveThenLoadReproducesPlayerInventory()
         {
             string path = CreateTempSavePath();
@@ -301,6 +336,28 @@ namespace Blockiverse.Tests.EditMode
 
                 Assert.That(result.Success, Is.False);
                 Assert.That(result.Error, Does.Contain("corrupt"));
+            }
+            finally
+            {
+                DeleteIfExists(path);
+            }
+        }
+
+        [Test]
+        public void PartiallyWrittenSaveEndingInNestedObjectReturnsControlledFailure()
+        {
+            string path = CreateTempSavePath();
+
+            try
+            {
+                File.WriteAllText(
+                    path,
+                    "{\"SchemaVersion\":2,\"WorldName\":\"partial\",\"Width\":4,\"Height\":4,\"Depth\":4,\"ChunkSize\":16,\"Seed\":1,\"ChangedBlocks\":[],\"PlayerInventory\":{\"SlotCount\":24,\"HotbarSlotCount\":6,\"SelectedHotbarSlotIndex\":0,\"Slots\":[]}");
+
+                WorldLoadResult result = new WorldSaveService(new WorldSaveMigrationRegistry()).Load(path);
+
+                Assert.That(result.Success, Is.False);
+                Assert.That(result.Error, Does.Contain("incomplete"));
             }
             finally
             {

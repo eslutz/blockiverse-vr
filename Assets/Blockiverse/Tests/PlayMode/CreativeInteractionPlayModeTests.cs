@@ -181,6 +181,39 @@ namespace Blockiverse.Tests.PlayMode
             }
         }
 
+        [Test]
+        public void PlacementPreviewUsesPropertyBlockWithoutInstantiatingMaterials()
+        {
+            var previewObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material previewMaterial = null;
+
+            try
+            {
+                previewMaterial = new Material(Shader.Find("Sprites/Default"));
+                MeshRenderer renderer = previewObject.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = previewMaterial;
+                Material originalSharedMaterial = renderer.sharedMaterial;
+                PlacementPreview preview = previewObject.AddComponent<PlacementPreview>();
+                preview.Configure(renderer);
+
+                preview.ShowAt(new BlockPosition(1, 1, 1), canPlace: false);
+
+                var properties = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(properties);
+
+                Assert.That(renderer.sharedMaterial, Is.SameAs(originalSharedMaterial));
+                Assert.That(properties.GetColor("_Color").r, Is.EqualTo(0.95f).Within(0.001f));
+                Assert.That(properties.GetColor("_Color").g, Is.EqualTo(0.25f).Within(0.001f));
+                Assert.That(properties.GetColor("_Color").b, Is.EqualTo(0.20f).Within(0.001f));
+                Assert.That(properties.GetColor("_Color").a, Is.EqualTo(0.42f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(previewObject);
+                Object.DestroyImmediate(previewMaterial);
+            }
+        }
+
         static Material CreateBlockAtlasMaterial(out Texture2D atlasTexture)
         {
             atlasTexture = new Texture2D(

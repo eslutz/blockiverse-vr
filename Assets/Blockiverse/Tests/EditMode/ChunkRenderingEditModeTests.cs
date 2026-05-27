@@ -76,6 +76,56 @@ namespace Blockiverse.Tests.EditMode
         }
 
         [Test]
+        public void RendererDestroysReplacedChunkMeshesAfterDirtyRebuild()
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            var world = new VoxelWorld(new WorldBounds(4, 4, 4), chunkSize: 16, seed: 5);
+            var editedPosition = new BlockPosition(1, 0, 1);
+            world.SetBlock(editedPosition, BlockRegistry.MeadowTurf, trackChange: false);
+            var worldObject = new GameObject("Chunk Renderer");
+            Texture2D atlasTexture = null;
+            Material blockMaterial = null;
+            Mesh firstMesh = null;
+
+            try
+            {
+                blockMaterial = CreateBlockAtlasMaterial(out atlasTexture);
+                VoxelWorldRenderer renderer = worldObject.AddComponent<VoxelWorldRenderer>();
+                renderer.Configure(world, registry, blockMaterial, -1);
+
+                MeshFilter filter = worldObject.GetComponentInChildren<MeshFilter>();
+                firstMesh = filter.sharedMesh;
+                Assert.That(firstMesh, Is.Not.Null);
+
+                world.SetBlock(editedPosition, BlockRegistry.Air);
+                renderer.RebuildDirty();
+
+                Assert.That(filter.sharedMesh, Is.Not.SameAs(firstMesh));
+                Assert.That(firstMesh == null, Is.True, "Expected the replaced chunk mesh to be destroyed.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(worldObject);
+                UnityEngine.Object.DestroyImmediate(blockMaterial);
+                UnityEngine.Object.DestroyImmediate(atlasTexture);
+
+                if (firstMesh != null)
+                    UnityEngine.Object.DestroyImmediate(firstMesh);
+            }
+        }
+
+        [Test]
+        public void RendererStatsRefreshDoesNotReadMeshTriangleArray()
+        {
+            MethodInfo refreshStats = typeof(VoxelWorldRenderer).GetMethod(
+                "RefreshStats",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            Assert.That(refreshStats, Is.Not.Null);
+            Assert.That(CallsMethod(refreshStats, typeof(Mesh), "get_triangles"), Is.False);
+        }
+
+        [Test]
         public void VisualAtlasContainsDistinctTilesForEveryRenderableBlock()
         {
             BlockRegistry registry = BlockRegistry.CreateDefault();
@@ -90,6 +140,18 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(tileRects, Has.Length.EqualTo(renderableBlocks.Length));
             Assert.That(tileRects.Distinct().Count(), Is.EqualTo(renderableBlocks.Length));
             Assert.That(tileRects.All(rect => rect.width > 0.0f && rect.height > 0.0f), Is.True);
+        }
+
+        [Test]
+        public void VisualAtlasRejectsRenderableBlocksWithoutTileMapping()
+        {
+            BlockRegistry registry = BlockRegistry.CreateDefault();
+            registry.Register(new BlockDefinition(new BlockId(99), "Missing Tile", BlockCategory.Crafted, isSolid: true, isRenderable: true));
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+                BlockVisualAtlas.ValidateRenderableBlockCoverage(registry));
+
+            Assert.That(exception.Message, Does.Contain("Missing Tile"));
         }
 
         [Test]
@@ -151,6 +213,48 @@ namespace Blockiverse.Tests.EditMode
             }
 
             return false;
+        }
+
+        static bool CallsMethod(MethodInfo method, Type declaringType, string methodName)
+        {
+            byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? Array.Empty<byte>();
+
+            for (int i = 0; i <= il.Length - 5; i++)
+            {
+                if (il[i] != 0x28 && il[i] != 0x6F)
+                    continue;
+
+                int metadataToken = BitConverter.ToInt32(il, i + 1);
+
+                try
+                {
+                    MethodBase calledMethod = method.Module.ResolveMethod(metadataToken);
+                    if (calledMethod.DeclaringType == declaringType && calledMethod.Name == methodName)
+                        return true;
+                }
+                catch (ArgumentException)
+                {
+                    // Operand bytes can look like opcodes when scanning raw IL.
+                }
+            }
+
+            return false;
+        }
+
+        static Material CreateBlockAtlasMaterial(out Texture2D atlasTexture)
+        {
+            atlasTexture = new Texture2D(
+                BlockVisualAtlas.Columns * BlockVisualAtlas.TilePixels,
+                BlockVisualAtlas.Rows * BlockVisualAtlas.TilePixels,
+                TextureFormat.RGBA32,
+                mipChain: false)
+            {
+                name = BlockVisualAtlas.AuthoredAtlasName
+            };
+
+            Material material = new(Shader.Find("Sprites/Default"));
+            material.mainTexture = atlasTexture;
+            return material;
         }
     }
 }

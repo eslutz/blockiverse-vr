@@ -195,7 +195,7 @@ namespace Blockiverse.Persistence
 
                 string json = File.ReadAllText(path);
 
-                if (string.IsNullOrWhiteSpace(json) || !json.TrimEnd().EndsWith("}", StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(json) || !HasCompleteTopLevelJsonObject(json))
                     return WorldLoadResult.Failed("World save is corrupt or incomplete.");
 
                 WorldSaveData data = JsonUtility.FromJson<WorldSaveData>(json);
@@ -211,7 +211,6 @@ namespace Blockiverse.Persistence
                     return WorldLoadResult.Failed(migrationError);
                 }
 
-                data = ApplyBuiltInMigrations(data);
                 EnsurePlayerInventoryDefaults(data);
 
                 if (!IsValid(data, validateInventory: true, out validationError))
@@ -298,6 +297,97 @@ namespace Blockiverse.Persistence
             }
 
             return data;
+        }
+
+        static bool HasCompleteTopLevelJsonObject(string json)
+        {
+            int index = 0;
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+                index++;
+
+            if (index >= json.Length || json[index] != '{')
+                return false;
+
+            bool inString = false;
+            bool escaped = false;
+            bool completedTopLevelObject = false;
+            int objectDepth = 0;
+            int arrayDepth = 0;
+
+            for (; index < json.Length; index++)
+            {
+                char character = json[index];
+
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                    }
+                    else if (character == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else if (character == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    if (completedTopLevelObject)
+                        return false;
+
+                    inString = true;
+                    continue;
+                }
+
+                switch (character)
+                {
+                    case '{':
+                        if (completedTopLevelObject)
+                            return false;
+
+                        objectDepth++;
+                        break;
+
+                    case '}':
+                        objectDepth--;
+                        if (objectDepth < 0)
+                            return false;
+
+                        if (objectDepth == 0 && arrayDepth == 0)
+                            completedTopLevelObject = true;
+                        break;
+
+                    case '[':
+                        if (completedTopLevelObject)
+                            return false;
+
+                        arrayDepth++;
+                        break;
+
+                    case ']':
+                        arrayDepth--;
+                        if (arrayDepth < 0)
+                            return false;
+                        break;
+
+                    default:
+                        if (completedTopLevelObject && !char.IsWhiteSpace(character))
+                            return false;
+                        break;
+                }
+            }
+
+            return completedTopLevelObject &&
+                   objectDepth == 0 &&
+                   arrayDepth == 0 &&
+                   !inString &&
+                   !escaped;
         }
 
         static void EnsurePlayerInventoryDefaults(WorldSaveData data)

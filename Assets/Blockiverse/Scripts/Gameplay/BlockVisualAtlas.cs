@@ -76,6 +76,25 @@ namespace Blockiverse.Gameplay
             return TileIndexByBlockId.ContainsKey(blockId.Value);
         }
 
+        public static void ValidateRenderableBlockCoverage(BlockRegistry registry)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+
+            var missingTiles = new List<string>();
+            foreach (BlockDefinition block in registry.All)
+            {
+                if (block.IsRenderable && !HasAuthoredTile(block.Id))
+                    missingTiles.Add($"{block.Name} ({block.Id})");
+            }
+
+            if (missingTiles.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Renderable blocks are missing visual atlas tile mappings: {string.Join(", ", missingTiles)}.");
+            }
+        }
+
         public static bool TryGetBaseTexture(Material material, out Texture texture)
         {
             texture = null;
