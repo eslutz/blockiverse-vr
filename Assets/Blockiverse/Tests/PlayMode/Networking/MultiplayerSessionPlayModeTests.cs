@@ -847,6 +847,105 @@ namespace Blockiverse.Tests.Networking.PlayMode
             Assert.That(clientSync.LastCompletedMutationRequestId, Is.Zero);
         }
 
+        [UnityTest]
+        public IEnumerator CompetingClientBlockMutationsRejectStaleRequestAndPreserveAuthoritativeWinner()
+        {
+            yield return LoadMultiplayerTestScene();
+
+            BlockiverseNetworkSession hostSession = UnityEngine.Object.FindFirstObjectByType<BlockiverseNetworkSession>();
+            Assert.That(hostSession, Is.Not.Null);
+
+            BlockiverseNetworkSession firstClientSession = CreateClientSession(hostSession);
+            BlockiverseNetworkSession competingClientSession = CreateClientSession(hostSession);
+            CreativeWorldManager hostWorldManager = CreateCreativeWorldManager("Host Conflict World");
+            CreativeWorldManager firstClientWorldManager = CreateCreativeWorldManager(
+                "First Client Conflict World",
+                new WorldGenerationSettings(width: 8, height: 8, depth: 8, chunkSize: 4, seed: 1222, groundHeight: 2));
+            CreativeWorldManager competingClientWorldManager = CreateCreativeWorldManager(
+                "Competing Client Conflict World",
+                new WorldGenerationSettings(width: 8, height: 8, depth: 8, chunkSize: 4, seed: 1223, groundHeight: 2));
+            MultiplayerChunkAuthoritySync hostSync = ConfigureChunkSync(hostSession, hostWorldManager);
+            MultiplayerChunkAuthoritySync firstClientSync = ConfigureChunkSync(firstClientSession, firstClientWorldManager);
+            MultiplayerChunkAuthoritySync competingClientSync = ConfigureChunkSync(competingClientSession, competingClientWorldManager);
+            var conflictPosition = new BlockPosition(2, 2, 2);
+            ushort port = NextPort();
+            var testConfig = new BlockiverseNetworkConfig(
+                BlockiverseNetworkConfig.DefaultAddress,
+                BlockiverseNetworkConfig.DefaultAddress,
+                port);
+
+            hostSession.Configure(testConfig);
+            firstClientSession.Configure(testConfig);
+            competingClientSession.Configure(testConfig);
+
+            Assert.That(hostSession.StartHost(), Is.True);
+            yield return WaitFor(
+                () => hostSession.NetworkManager.IsHost && hostSession.CurrentState == BlockiverseConnectionState.Hosting,
+                "Host did not start for conflict handling.");
+
+            Assert.That(firstClientSession.StartClient(BlockiverseNetworkConfig.DefaultAddress), Is.True);
+            yield return WaitFor(
+                () => firstClientSession.NetworkManager.IsConnectedClient &&
+                      hostSession.NetworkManager.ConnectedClientsIds.Count == 2,
+                "First client did not connect for conflict handling.");
+
+            Assert.That(competingClientSession.StartClient(BlockiverseNetworkConfig.DefaultAddress), Is.True);
+            yield return WaitFor(
+                () => competingClientSession.NetworkManager.IsConnectedClient &&
+                      hostSession.NetworkManager.ConnectedClientsIds.Count == 3,
+                "Competing client did not connect for conflict handling.");
+
+            yield return WaitFor(
+                () => firstClientSync.HasHostGenerationSnapshotForSession &&
+                      competingClientSync.HasHostGenerationSnapshotForSession,
+                "Clients did not receive host generation snapshots for conflict handling.");
+
+            BlockMutationResult winningRequest = firstClientSync.TrySubmitMutation(
+                new BlockMutationRequest(
+                    firstClientSync.CurrentBoundary.LocalClientId,
+                    conflictPosition,
+                    BlockRegistry.Clearstone,
+                    BlockRegistry.Air),
+                out SetBlockCommand firstClientCommand,
+                out bool winningRequestSentToHost);
+
+            Assert.That(winningRequestSentToHost, Is.True);
+            Assert.That(winningRequest.PendingHostValidation, Is.True);
+            Assert.That(firstClientCommand, Is.Null);
+
+            yield return WaitFor(
+                () => hostWorldManager.World.GetBlock(conflictPosition) == BlockRegistry.Clearstone &&
+                      firstClientWorldManager.World.GetBlock(conflictPosition) == BlockRegistry.Clearstone &&
+                      competingClientWorldManager.World.GetBlock(conflictPosition) == BlockRegistry.Clearstone,
+                "Winning competing mutation did not converge before stale conflict request.");
+
+            BlockMutationResult staleCompetingRequest = competingClientSync.TrySubmitMutation(
+                new BlockMutationRequest(
+                    competingClientSync.CurrentBoundary.LocalClientId,
+                    conflictPosition,
+                    BlockRegistry.Slate,
+                    BlockRegistry.Air),
+                out SetBlockCommand competingClientCommand,
+                out bool staleRequestSentToHost);
+
+            Assert.That(staleRequestSentToHost, Is.True);
+            Assert.That(staleCompetingRequest.PendingHostValidation, Is.True);
+            Assert.That(competingClientCommand, Is.Null);
+
+            yield return WaitFor(
+                () => competingClientSync.LastMutationResult.RejectionReason == BlockMutationRejectionReason.ExpectedBlockMismatch,
+                "Host did not reject stale competing mutation deterministically.");
+
+            Assert.That(hostSync.ReceivedMutationRequestCount, Is.EqualTo(2));
+            Assert.That(hostSync.BroadcastDeltaCount, Is.EqualTo(1));
+            Assert.That(hostSync.ConflictRejectedMutationCount, Is.EqualTo(1));
+            Assert.That(competingClientSync.ReceivedMutationRejectionCount, Is.EqualTo(1));
+            Assert.That(competingClientSync.PendingMutationRequestCount, Is.Zero);
+            Assert.That(hostWorldManager.World.GetBlock(conflictPosition), Is.EqualTo(BlockRegistry.Clearstone));
+            Assert.That(firstClientWorldManager.World.GetBlock(conflictPosition), Is.EqualTo(BlockRegistry.Clearstone));
+            Assert.That(competingClientWorldManager.World.GetBlock(conflictPosition), Is.EqualTo(BlockRegistry.Clearstone));
+        }
+
         [UnityTearDown]
         public IEnumerator TearDown()
         {
