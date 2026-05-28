@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Blockiverse.Core;
 using Blockiverse.UI;
+using Blockiverse.VR;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -82,6 +83,10 @@ namespace Blockiverse.Tests.PlayMode
             Canvas canvas = popup.GetComponent<Canvas>();
             Assert.That(canvas, Is.Not.Null);
             Assert.That(canvas.enabled, Is.True);
+
+            BlockiverseWorldSpacePanelPresenter presenter = popup.GetComponent<BlockiverseWorldSpacePanelPresenter>();
+            Assert.That(presenter, Is.Not.Null);
+            Assert.That(presenter.IsVisible, Is.True);
 
             Button closeButton = popup.transform.Find("Panel/Close Button")?.GetComponent<Button>();
             Assert.That(closeButton, Is.Not.Null);

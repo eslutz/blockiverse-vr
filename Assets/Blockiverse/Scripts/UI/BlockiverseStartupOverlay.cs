@@ -1,4 +1,5 @@
 using System.Collections;
+using Blockiverse.VR;
 using UnityEngine;
 
 namespace Blockiverse.UI
@@ -6,6 +7,7 @@ namespace Blockiverse.UI
     public sealed class BlockiverseStartupOverlay : MonoBehaviour
     {
         [SerializeField] Canvas targetCanvas;
+        [SerializeField] BlockiverseWorldSpacePanelPresenter presenter;
         [SerializeField] float hideAfterSeconds = 2.25f;
         [SerializeField] bool hideAutomatically = true;
 
@@ -15,7 +17,17 @@ namespace Blockiverse.UI
 
         public void Configure(Canvas canvas, float delaySeconds = 2.25f, bool automaticHide = true)
         {
+            Configure(canvas, null, delaySeconds, automaticHide);
+        }
+
+        public void Configure(
+            Canvas canvas,
+            BlockiverseWorldSpacePanelPresenter panelPresenter,
+            float delaySeconds = 2.25f,
+            bool automaticHide = true)
+        {
             targetCanvas = canvas;
+            presenter = panelPresenter;
             hideAfterSeconds = delaySeconds;
             hideAutomatically = automaticHide;
         }
@@ -24,7 +36,9 @@ namespace Blockiverse.UI
         {
             EnsureCanvas();
 
-            if (targetCanvas != null)
+            if (presenter != null)
+                presenter.Hide();
+            else if (targetCanvas != null)
                 targetCanvas.enabled = false;
         }
 
@@ -36,8 +50,18 @@ namespace Blockiverse.UI
         void OnEnable()
         {
             EnsureCanvas();
+            BeginHideTimer();
+        }
 
-            if (!Application.isPlaying || !hideAutomatically || targetCanvas == null || !targetCanvas.enabled)
+        void Start()
+        {
+            EnsureCanvas();
+            BeginHideTimer();
+        }
+
+        void BeginHideTimer()
+        {
+            if (!Application.isPlaying || !hideAutomatically || targetCanvas == null || hideRoutine != null)
                 return;
 
             hideRoutine = StartCoroutine(HideAfterDelay());

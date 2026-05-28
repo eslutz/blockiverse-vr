@@ -1644,7 +1644,7 @@ namespace Blockiverse.Editor
             Canvas canvas = EnsureComponent<Canvas>(overlayObject);
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = 30;
-            canvas.enabled = true;
+            canvas.enabled = false;
             ConfigureCanvasWorldCamera(canvas, head);
 
             CanvasScaler scaler = EnsureComponent<CanvasScaler>(overlayObject);
@@ -1697,10 +1697,22 @@ namespace Blockiverse.Editor
                 new Vector2(62.0f, 72.0f),
                 new Vector2(720.0f, 48.0f));
 
+            BlockiverseWorldSpacePanelPresenter presenter = EnsureComponent<BlockiverseWorldSpacePanelPresenter>(overlayObject);
+            presenter.Configure(
+                canvas,
+                head,
+                1.0f,
+                0.0f,
+                -0.14f,
+                0.0f,
+                0.00165f,
+                showWhenStarted: true);
+
             BlockiverseStartupOverlay startupOverlay = EnsureComponent<BlockiverseStartupOverlay>(overlayObject);
-            startupOverlay.Configure(canvas, 2.25f, automaticHide: true);
+            startupOverlay.Configure(canvas, presenter, 2.25f, automaticHide: true);
 
             EditorUtility.SetDirty(artworkImage);
+            EditorUtility.SetDirty(presenter);
             EditorUtility.SetDirty(startupOverlay);
             EditorUtility.SetDirty(overlayObject);
         }
@@ -1725,7 +1737,7 @@ namespace Blockiverse.Editor
             Canvas canvas = EnsureComponent<Canvas>(popupObject);
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = 22;
-            canvas.enabled = true;
+            canvas.enabled = false;
             ConfigureCanvasWorldCamera(canvas, head);
 
             CanvasScaler scaler = EnsureComponent<CanvasScaler>(popupObject);
@@ -1775,7 +1787,15 @@ namespace Blockiverse.Editor
                 new Vector2(180.0f, 52.0f));
 
             BlockiverseWorldSpacePanelPresenter presenter = EnsureComponent<BlockiverseWorldSpacePanelPresenter>(popupObject);
-            presenter.Configure(canvas, head, 1.06f, 0.0f, -0.14f, 0.0f);
+            presenter.Configure(
+                canvas,
+                head,
+                1.06f,
+                0.0f,
+                -0.14f,
+                0.0f,
+                0.00185f,
+                showWhenStarted: true);
 
             RemovePersistentListeners(
                 closeButton.onClick,

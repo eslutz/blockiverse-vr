@@ -13,9 +13,11 @@ namespace Blockiverse.VR
         [SerializeField] float pitchDegrees;
         [SerializeField] float panelScale = 0.002f;
         [SerializeField] bool recenterOnShow = true;
+        [SerializeField] bool showOnStart;
 
         public Canvas TargetCanvas => targetCanvas;
         public bool IsVisible => targetCanvas != null && targetCanvas.enabled;
+        public bool ShowOnStart => showOnStart;
 
         public void Configure(
             Canvas canvas,
@@ -25,7 +27,8 @@ namespace Blockiverse.VR
             float verticalOffset,
             float pitch,
             float scale = 0.002f,
-            bool recenterWhenShown = true)
+            bool recenterWhenShown = true,
+            bool showWhenStarted = false)
         {
             targetCanvas = canvas;
             headset = targetHeadset;
@@ -35,6 +38,7 @@ namespace Blockiverse.VR
             pitchDegrees = pitch;
             panelScale = scale;
             recenterOnShow = recenterWhenShown;
+            showOnStart = showWhenStarted;
         }
 
         public void Show()
@@ -97,6 +101,12 @@ namespace Blockiverse.VR
         void Awake()
         {
             EnsureCanvas();
+        }
+
+        void Start()
+        {
+            if (showOnStart)
+                Show();
         }
 
         void EnsureCanvas()

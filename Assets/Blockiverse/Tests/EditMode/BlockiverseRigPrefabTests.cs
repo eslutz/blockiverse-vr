@@ -122,16 +122,25 @@ namespace Blockiverse.Tests.EditMode
             Assert.That(prefab, Is.Not.Null);
 
             Transform popup = prefab.transform.Find("Camera Offset/Controller Mapping Popup");
+            Transform startupOverlay = prefab.transform.Find("Camera Offset/Startup Loading Overlay");
             Transform survivalHud = prefab.transform.Find("Camera Offset/Survival HUD");
 
             Assert.That(popup, Is.Not.Null);
-            Assert.That(popup.GetComponent<BlockiverseWorldSpacePanelPresenter>(), Is.Not.Null);
-            Assert.That(popup.GetComponent<Canvas>()?.enabled, Is.True);
+            BlockiverseWorldSpacePanelPresenter popupPresenter = popup.GetComponent<BlockiverseWorldSpacePanelPresenter>();
+            Assert.That(popupPresenter, Is.Not.Null);
+            Assert.That(popupPresenter.ShowOnStart, Is.True);
+            Assert.That(popup.GetComponent<Canvas>()?.enabled, Is.False);
             Assert.That(popup.GetComponentsInChildren<Button>(includeInactive: true), Has.Length.GreaterThanOrEqualTo(1));
             Assert.That(
                 popup.GetComponentsInChildren<Text>(includeInactive: true)
                     .Any(label => label.text.Contains("Right trigger")),
                 Is.True);
+
+            Assert.That(startupOverlay, Is.Not.Null);
+            BlockiverseWorldSpacePanelPresenter startupPresenter = startupOverlay.GetComponent<BlockiverseWorldSpacePanelPresenter>();
+            Assert.That(startupPresenter, Is.Not.Null);
+            Assert.That(startupPresenter.ShowOnStart, Is.True);
+            Assert.That(startupOverlay.GetComponent<Canvas>()?.enabled, Is.False);
 
             Assert.That(survivalHud, Is.Not.Null);
             Assert.That(survivalHud.GetComponentsInChildren<Button>(includeInactive: true), Has.Length.GreaterThanOrEqualTo(11));

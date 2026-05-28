@@ -1032,7 +1032,7 @@ Canvas:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1248877660919414135}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_RenderMode: 2
   m_Camera: {fileID: 2498534017811587301}
@@ -1106,8 +1106,9 @@ MonoBehaviour:
   horizontalOffsetMeters: 0
   verticalOffsetMeters: -0.14
   pitchDegrees: 0
-  panelScale: 0.002
+  panelScale: 0.00185
   recenterOnShow: 1
+  showOnStart: 1
 --- !u!1 &1403614492150186579
 GameObject:
   m_ObjectHideFlags: 0
@@ -3145,6 +3146,7 @@ MonoBehaviour:
   pitchDegrees: 0
   panelScale: 0.002
   recenterOnShow: 1
+  showOnStart: 0
 --- !u!1 &4264771262897812024
 GameObject:
   m_ObjectHideFlags: 0
@@ -4658,6 +4660,7 @@ GameObject:
   - component: {fileID: 2027257359088384870}
   - component: {fileID: 4834971982074241300}
   - component: {fileID: 3184768745847178727}
+  - component: {fileID: 3150601499640595564}
   m_Layer: 0
   m_Name: Startup Loading Overlay
   m_TagString: Untagged
@@ -4695,7 +4698,7 @@ Canvas:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5931039728415396436}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_RenderMode: 2
   m_Camera: {fileID: 2498534017811587301}
@@ -4764,8 +4767,30 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Blockiverse.UI::Blockiverse.UI.BlockiverseStartupOverlay
   targetCanvas: {fileID: 6632512395977325637}
+  presenter: {fileID: 3150601499640595564}
   hideAfterSeconds: 2.25
   hideAutomatically: 1
+--- !u!114 &3150601499640595564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5931039728415396436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d5de57bc6d1408ba7dbbb9aee6588d1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Blockiverse.VR::Blockiverse.VR.BlockiverseWorldSpacePanelPresenter
+  targetCanvas: {fileID: 6632512395977325637}
+  headset: {fileID: 96463171583487156}
+  distanceMeters: 1
+  horizontalOffsetMeters: 0
+  verticalOffsetMeters: -0.14
+  pitchDegrees: 0
+  panelScale: 0.00165
+  recenterOnShow: 1
+  showOnStart: 1
 --- !u!1 &5941978321280501403
 GameObject:
   m_ObjectHideFlags: 0
@@ -6857,6 +6882,7 @@ MonoBehaviour:
   pitchDegrees: 0
   panelScale: 0.002
   recenterOnShow: 1
+  showOnStart: 0
 --- !u!1 &8091341093449258649
 GameObject:
   m_ObjectHideFlags: 0
