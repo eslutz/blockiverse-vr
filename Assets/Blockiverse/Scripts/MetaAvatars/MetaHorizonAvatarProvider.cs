@@ -21,8 +21,10 @@ namespace Blockiverse.MetaAvatars
         byte[] streamBuffer = Array.Empty<byte>();
         MetaAvatarPresentationMode mode = MetaAvatarPresentationMode.RemoteThirdPerson;
         bool attemptedLocalLoad;
+#if UNITY_ANDROID && !UNITY_EDITOR
         bool waitingForAccessToken;
         bool waitingForLoggedInUser;
+#endif
         bool hasAppliedRemoteStream;
 
         public bool IsAvatarReady
@@ -107,9 +109,13 @@ namespace Blockiverse.MetaAvatars
             if (avatarEntity != null)
                 return;
 
+#if UNITY_ANDROID && !UNITY_EDITOR
             var entityObject = new GameObject(AvatarEntityName);
             entityObject.transform.SetParent(transform, false);
             avatarEntity = entityObject.AddComponent<BlockiverseMetaAvatarEntity>();
+#else
+            fallbackReason = "Meta Horizon avatar entity is only created in Quest runtime.";
+#endif
         }
 
         bool TryStartLocalAvatarLoad()
@@ -162,6 +168,7 @@ namespace Blockiverse.MetaAvatars
 #endif
         }
 
+#if UNITY_ANDROID && !UNITY_EDITOR
         void OnAccessTokenResolved(Message<string> message)
         {
             waitingForAccessToken = false;
@@ -194,5 +201,6 @@ namespace Blockiverse.MetaAvatars
             else
                 fallbackReason = "Meta Horizon avatar user load could not start; fallback proxy remains active.";
         }
+#endif
     }
 }
