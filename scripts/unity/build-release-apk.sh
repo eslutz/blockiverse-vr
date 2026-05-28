@@ -2,6 +2,9 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -z "${UNITY_EDITOR:-}" ] && [ -n "${UNITY_PATH:-}" ]; then
+  UNITY_EDITOR="$UNITY_PATH/Editor/Unity"
+fi
 UNITY_EDITOR="${UNITY_EDITOR:-/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity}"
 OUTPUT_PATH="${1:-${UNITY_ANDROID_BUILD_OUTPUT:-$PROJECT_ROOT/Builds/Android/BlockiverseVR-release.apk}}"
 

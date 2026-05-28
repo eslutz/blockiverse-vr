@@ -30,4 +30,6 @@ jobs:
           test -x scripts/unity/build-release-apk.sh
           grep -q "BuildReleaseAndroid" Assets/Blockiverse/Scripts/Editor/BlockiverseBuildSmoke.cs
           grep -q "ANDROID_KEYSTORE_BASE64" .github/workflows/release-apk.yml
+          grep -q "unityci/editor:ubuntu-6000.3.16f1-android-3.2.2" .github/workflows/release-apk.yml
+          grep -q "needs: build-release-apk" .github/workflows/release-apk.yml
           grep -q "gh release" .github/workflows/release-apk.yml
