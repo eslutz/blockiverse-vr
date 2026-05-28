@@ -8,6 +8,7 @@ using Blockiverse.Core;
 using Blockiverse.Gameplay;
 using Blockiverse.Networking;
 using Blockiverse.Persistence;
+using Blockiverse.Survival;
 using Blockiverse.Voxel;
 using Blockiverse.WorldGen;
 using Blockiverse.UI;
@@ -946,6 +947,162 @@ namespace Blockiverse.Tests.Networking.PlayMode
             Assert.That(competingClientWorldManager.World.GetBlock(conflictPosition), Is.EqualTo(BlockRegistry.Clearstone));
         }
 
+        [UnityTest]
+        public IEnumerator NetworkedSurvivalLiteActionsStayHostAuthoritativeAndPerPlayer()
+        {
+            yield return LoadMultiplayerTestScene();
+
+            BlockiverseNetworkSession hostSession = UnityEngine.Object.FindFirstObjectByType<BlockiverseNetworkSession>();
+            Assert.That(hostSession, Is.Not.Null);
+
+            BlockiverseNetworkSession firstClientSession = CreateClientSession(hostSession);
+            BlockiverseNetworkSession secondClientSession = CreateClientSession(hostSession);
+            CreativeWorldManager hostWorldManager = CreateCreativeWorldManager("Host Survival Sync World");
+            CreativeWorldManager firstClientWorldManager = CreateCreativeWorldManager(
+                "First Client Survival Sync World",
+                new WorldGenerationSettings(width: 8, height: 8, depth: 8, chunkSize: 4, seed: 3112, groundHeight: 2));
+            CreativeWorldManager secondClientWorldManager = CreateCreativeWorldManager(
+                "Second Client Survival Sync World",
+                new WorldGenerationSettings(width: 8, height: 8, depth: 8, chunkSize: 4, seed: 4112, groundHeight: 2));
+            var timberPosition = new BlockPosition(2, 2, 2);
+            var coalstonePosition = new BlockPosition(3, 2, 2);
+            var crateTimberPosition = new BlockPosition(4, 2, 2);
+            hostWorldManager.World.SetBlock(timberPosition, BlockRegistry.Timber);
+            hostWorldManager.World.SetBlock(coalstonePosition, BlockRegistry.Coalstone);
+            hostWorldManager.World.SetBlock(crateTimberPosition, BlockRegistry.Timber);
+
+            MultiplayerChunkAuthoritySync hostChunkSync = ConfigureChunkSync(hostSession, hostWorldManager);
+            MultiplayerChunkAuthoritySync firstClientChunkSync = ConfigureChunkSync(firstClientSession, firstClientWorldManager);
+            MultiplayerChunkAuthoritySync secondClientChunkSync = ConfigureChunkSync(secondClientSession, secondClientWorldManager);
+            MultiplayerSurvivalSync hostSurvivalSync = ConfigureSurvivalSync(hostSession, hostChunkSync, hostWorldManager);
+            MultiplayerSurvivalSync firstClientSurvivalSync = ConfigureSurvivalSync(firstClientSession, firstClientChunkSync, firstClientWorldManager);
+            MultiplayerSurvivalSync secondClientSurvivalSync = ConfigureSurvivalSync(secondClientSession, secondClientChunkSync, secondClientWorldManager);
+            ushort port = NextPort();
+            var testConfig = new BlockiverseNetworkConfig(
+                BlockiverseNetworkConfig.DefaultAddress,
+                BlockiverseNetworkConfig.DefaultAddress,
+                port);
+
+            hostSession.Configure(testConfig);
+            firstClientSession.Configure(testConfig);
+            secondClientSession.Configure(testConfig);
+
+            Assert.That(hostSession.StartHost(), Is.True);
+            yield return WaitFor(
+                () => hostSession.NetworkManager.IsHost && hostSession.CurrentState == BlockiverseConnectionState.Hosting,
+                "Host did not start for survival sync.");
+
+            Assert.That(firstClientSession.StartClient(BlockiverseNetworkConfig.DefaultAddress), Is.True);
+            yield return WaitFor(
+                () => firstClientSession.NetworkManager.IsConnectedClient &&
+                      hostSession.NetworkManager.ConnectedClientsIds.Count == 2,
+                "First client did not connect for survival sync.");
+
+            Assert.That(secondClientSession.StartClient(BlockiverseNetworkConfig.DefaultAddress), Is.True);
+            yield return WaitFor(
+                () => secondClientSession.NetworkManager.IsConnectedClient &&
+                      hostSession.NetworkManager.ConnectedClientsIds.Count == 3,
+                "Second client did not connect for survival sync.");
+
+            yield return WaitFor(
+                () => firstClientChunkSync.HasHostGenerationSnapshotForSession &&
+                      secondClientChunkSync.HasHostGenerationSnapshotForSession &&
+                      firstClientSurvivalSync.ReceivedInventorySnapshotCount > 0 &&
+                      secondClientSurvivalSync.ReceivedInventorySnapshotCount > 0,
+                "Clients did not receive host-owned survival and world snapshots.");
+
+            SurvivalCommandResult timberHarvest = firstClientSurvivalSync.TrySubmitHarvest(
+                timberPosition,
+                ItemStack.Empty,
+                out bool timberHarvestSentToHost);
+
+            Assert.That(timberHarvestSentToHost, Is.True);
+            Assert.That(timberHarvest.PendingHostValidation, Is.True);
+            Assert.That(timberHarvest.CommandKind, Is.EqualTo(SurvivalCommandKind.HarvestResource));
+
+            yield return WaitFor(
+                () => firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 1 &&
+                      hostSurvivalSync.GetInventory(firstClientChunkSync.CurrentBoundary.LocalClientId).CountOf(ItemId.Timber) == 1 &&
+                      secondClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 0 &&
+                      hostWorldManager.World.GetBlock(timberPosition) == BlockRegistry.Air &&
+                      firstClientWorldManager.World.GetBlock(timberPosition) == BlockRegistry.Air &&
+                      secondClientWorldManager.World.GetBlock(timberPosition) == BlockRegistry.Air,
+                "Host did not grant harvested timber only to the requesting client.");
+
+            SurvivalCommandResult coalHarvest = firstClientSurvivalSync.TrySubmitHarvest(
+                coalstonePosition,
+                ItemStack.Empty,
+                out bool coalHarvestSentToHost);
+
+            Assert.That(coalHarvestSentToHost, Is.True);
+            Assert.That(coalHarvest.PendingHostValidation, Is.True);
+
+            yield return WaitFor(
+                () => firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Coalstone) == 1,
+                "Host did not grant harvested coalstone to the requesting client.");
+
+            SurvivalCommandResult craftTorchbud = firstClientSurvivalSync.TrySubmitCraft(
+                ItemId.Torchbud,
+                CraftingStation.Workbench,
+                out bool craftSentToHost);
+
+            Assert.That(craftSentToHost, Is.True);
+            Assert.That(craftTorchbud.PendingHostValidation, Is.True);
+
+            yield return WaitFor(
+                () => firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Torchbud) == 4 &&
+                      firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 0 &&
+                      firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Coalstone) == 0 &&
+                      hostSurvivalSync.GetInventory(firstClientChunkSync.CurrentBoundary.LocalClientId).CountOf(ItemId.Torchbud) == 4,
+                "Host did not validate crafting consistently for the requesting client.");
+
+            SurvivalCommandResult crateTimberHarvest = firstClientSurvivalSync.TrySubmitHarvest(
+                crateTimberPosition,
+                ItemStack.Empty,
+                out bool crateTimberHarvestSentToHost);
+
+            Assert.That(crateTimberHarvestSentToHost, Is.True);
+            Assert.That(crateTimberHarvest.PendingHostValidation, Is.True);
+
+            yield return WaitFor(
+                () => firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 1,
+                "Host did not grant timber before crate transfer.");
+
+            SurvivalCommandResult depositTimber = firstClientSurvivalSync.TrySubmitCrateDeposit(
+                ItemId.Timber,
+                1,
+                out bool depositSentToHost);
+
+            Assert.That(depositSentToHost, Is.True);
+            Assert.That(depositTimber.PendingHostValidation, Is.True);
+
+            yield return WaitFor(
+                () => firstClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 0 &&
+                      firstClientSurvivalSync.SharedCrateInventory.CountOf(ItemId.Timber) == 1 &&
+                      secondClientSurvivalSync.SharedCrateInventory.CountOf(ItemId.Timber) == 1,
+                "Shared crate deposit did not sync to both clients.");
+
+            SurvivalCommandResult withdrawTimber = secondClientSurvivalSync.TrySubmitCrateWithdraw(
+                ItemId.Timber,
+                1,
+                out bool withdrawSentToHost);
+
+            Assert.That(withdrawSentToHost, Is.True);
+            Assert.That(withdrawTimber.PendingHostValidation, Is.True);
+
+            yield return WaitFor(
+                () => secondClientSurvivalSync.LocalInventory.CountOf(ItemId.Timber) == 1 &&
+                      firstClientSurvivalSync.SharedCrateInventory.CountOf(ItemId.Timber) == 0 &&
+                      secondClientSurvivalSync.SharedCrateInventory.CountOf(ItemId.Timber) == 0,
+                "Shared crate withdrawal did not update the withdrawing client and crate mirrors.");
+
+            Assert.That(hostSurvivalSync.AcceptedHarvestCount, Is.EqualTo(3));
+            Assert.That(hostSurvivalSync.AcceptedCraftCount, Is.EqualTo(1));
+            Assert.That(hostSurvivalSync.AcceptedCrateTransferCount, Is.EqualTo(2));
+            Assert.That(firstClientSurvivalSync.PendingCommandRequestCount, Is.Zero);
+            Assert.That(secondClientSurvivalSync.PendingCommandRequestCount, Is.Zero);
+        }
+
         [UnityTearDown]
         public IEnumerator TearDown()
         {
@@ -1027,6 +1184,20 @@ namespace Blockiverse.Tests.Networking.PlayMode
                 sync = session.gameObject.AddComponent<MultiplayerChunkAuthoritySync>();
 
             sync.Configure(session, worldManager);
+            return sync;
+        }
+
+        static MultiplayerSurvivalSync ConfigureSurvivalSync(
+            BlockiverseNetworkSession session,
+            MultiplayerChunkAuthoritySync chunkSync,
+            CreativeWorldManager worldManager)
+        {
+            MultiplayerSurvivalSync sync = session.GetComponent<MultiplayerSurvivalSync>();
+
+            if (sync == null)
+                sync = session.gameObject.AddComponent<MultiplayerSurvivalSync>();
+
+            sync.Configure(session, chunkSync, worldManager);
             return sync;
         }
 
